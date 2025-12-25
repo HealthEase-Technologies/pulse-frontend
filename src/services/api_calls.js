@@ -1,0 +1,731 @@
+/**
+ * Pulse Health Tracking Application - API Service
+ *
+ * This module provides a centralized service for all API calls to the Pulse backend.
+ * Includes automatic authentication token handling and logout on unauthorized access.
+ *
+ * Environment:
+ * - BASE_URL: Configured via NEXT_PUBLIC_API_URL (defaults to http://localhost:8000)
+ *
+ * Authentication:
+ * - All authenticated endpoints require 'access-token' JWT stored in localStorage
+ * - Automatic logout on 401/403 responses with redirect to /login
+ * - Token is automatically included in request headers
+ *
+ * Features:
+ * - Centralized error handling
+ * - Automatic authentication management
+ * - Type-safe API calls with JSDoc documentation
+ */
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+/**
+ * Handles automatic logout when receiving 401/403 status codes
+ * Clears all auth data from localStorage and redirects to login
+ */
+const handleUnauthorized = () => {
+  // Clear all authentication data
+  localStorage.clear();
+
+  // Redirect to login page
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
+};
+
+/**
+ * Base headers for unauthenticated requests
+ * @returns {Object} Headers object
+ */
+const getBaseHeaders = () => ({
+  "Content-Type": "application/json",
+});
+
+/**
+ * Headers with authentication token for protected endpoints
+ * @returns {Object} Headers object with access token
+ */
+const getAuthHeaders = () => ({
+  "Content-Type": "application/json",
+  "Authorization": `Bearer ${localStorage.getItem("access-token") || ""}`,
+});
+
+/**
+ * Centralized fetch wrapper for authenticated requests
+ * Automatically handles 401/403 responses and logs out the user
+ *
+ * @param {string} url - The endpoint URL
+ * @param {Object} options - Fetch options (method, headers, body, etc.)
+ * @returns {Promise<Response>} Fetch response
+ * @throws {Error} If the request fails or user is unauthorized
+ */
+const authenticatedFetch = async (url, options = {}) => {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...getAuthHeaders(),
+        ...options.headers,
+      },
+    });
+
+    // Check for unauthorized access
+    if (response.status === 401 || response.status === 403) {
+      console.warn('Unauthorized access detected. Logging out...');
+      handleUnauthorized();
+      throw new Error('Session expired. Please log in again.');
+    }
+
+    return response;
+  } catch (error) {
+    // If it's a network error and not our custom unauthorized error, rethrow
+    if (error.message !== 'Session expired. Please log in again.') {
+      throw error;
+    }
+    throw error;
+  }
+};
+
+// ============================================================================
+// AUTHENTICATION ENDPOINTS
+// ============================================================================
+
+/**
+ * Registers a new user in the Pulse database after Cognito signup
+ * @param {Object} userData User registration data
+ * @param {string} userData.cognito_id Cognito user ID
+ * @param {string} userData.username Username
+ * @param {string} userData.email Email address
+ * @param {string} userData.full_name Full name
+ * @param {string} userData.role User role (patient, provider, admin)
+ * @returns {Promise<Object>} Registered user data
+ * @throws {Error} If registration fails
+ */
+export const registerUser = async (userData) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/users/register`, {
+      method: "POST",
+      headers: getBaseHeaders(),
+      body: JSON.stringify(userData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Registration failed");
+    }
+
+    const data = await response.json();
+    console.log("User registered:", data);
+    return data;
+  } catch (error) {
+    console.error("Registration error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Verifies the current authentication token
+ * @returns {Promise<Object>} Token verification result
+ * @throws {Error} If token is invalid
+ */
+export const verifyToken = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/auth/verify`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Token verification failed");
+    }
+
+    const data = await response.json();
+    console.log("Token verified:", data);
+    return data;
+  } catch (error) {
+    console.error("Token verification error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gets current user information
+ * @returns {Promise<Object>} Current user data
+ * @throws {Error} If request fails
+ */
+export const getCurrentUser = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/auth/me`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get user info");
+    }
+
+    const data = await response.json();
+    console.log("Current user:", data);
+    return data;
+  } catch (error) {
+    console.error("Get current user error:", error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// PATIENT ENDPOINTS
+// ============================================================================
+
+/**
+ * Gets the current patient's profile
+ * @returns {Promise<Object>} Patient profile data
+ * @throws {Error} If request fails
+ */
+export const getPatientProfile = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/profile`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get patient profile");
+    }
+
+    const data = await response.json();
+    console.log("Patient profile:", data);
+    return data;
+  } catch (error) {
+    console.error("Get patient profile error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Checks if patient has completed onboarding
+ * @returns {Promise<Object>} Onboarding status with profile data
+ * @throws {Error} If request fails
+ */
+export const checkOnboardingStatus = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/onboarding/status`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to check onboarding status");
+    }
+
+    const data = await response.json();
+    console.log("Onboarding status:", data);
+    return data;
+  } catch (error) {
+    console.error("Check onboarding status error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Completes patient onboarding with health information
+ * @param {Object} onboardingData Onboarding data
+ * @param {string} onboardingData.date_of_birth Date of birth (YYYY-MM-DD)
+ * @param {number} onboardingData.height_cm Height in centimeters
+ * @param {number} onboardingData.weight_kg Weight in kilograms
+ * @param {Array<Object>} onboardingData.health_goals List of health goals
+ * @param {Array<string>} onboardingData.health_restrictions Health restrictions
+ * @param {string} onboardingData.reminder_frequency Reminder frequency
+ * @param {Array<Object>} onboardingData.emergency_contacts Emergency contacts (max 3)
+ * @returns {Promise<Object>} Updated profile data
+ * @throws {Error} If request fails
+ */
+export const completeOnboarding = async (onboardingData) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/onboarding/complete`, {
+      method: "POST",
+      body: JSON.stringify(onboardingData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to complete onboarding");
+    }
+
+    const data = await response.json();
+    console.log("Onboarding completed:", data);
+    return data;
+  } catch (error) {
+    console.error("Complete onboarding error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Updates patient profile information
+ * @param {Object} updateData Partial profile update data
+ * @returns {Promise<Object>} Updated profile data
+ * @throws {Error} If request fails
+ */
+export const updatePatientProfile = async (updateData) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/profile`, {
+      method: "PATCH",
+      body: JSON.stringify(updateData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to update profile");
+    }
+
+    const data = await response.json();
+    console.log("Profile updated:", data);
+    return data;
+  } catch (error) {
+    console.error("Update profile error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Marks a health goal as completed for a specific date
+ * @param {string} goalText Goal description
+ * @param {string} goalFrequency Goal frequency (daily, weekly, monthly)
+ * @param {string} [completionDate] Completion date (YYYY-MM-DD), defaults to today
+ * @returns {Promise<Object>} Completion record
+ * @throws {Error} If request fails
+ */
+export const markGoalComplete = async (goalText, goalFrequency, completionDate = null) => {
+  try {
+    const params = new URLSearchParams({
+      goal_text: goalText,
+      goal_frequency: goalFrequency,
+    });
+
+    if (completionDate) {
+      params.append('completion_date', completionDate);
+    }
+
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/goals/complete?${params.toString()}`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to mark goal complete");
+    }
+
+    const data = await response.json();
+    console.log("Goal marked complete:", data);
+    return data;
+  } catch (error) {
+    console.error("Mark goal complete error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Unmarks a goal completion
+ * @param {string} goalText Goal description
+ * @param {string} [completionDate] Completion date (YYYY-MM-DD), defaults to today
+ * @returns {Promise<Object>} Result
+ * @throws {Error} If request fails
+ */
+export const unmarkGoalComplete = async (goalText, completionDate = null) => {
+  try {
+    const params = new URLSearchParams({
+      goal_text: goalText,
+    });
+
+    if (completionDate) {
+      params.append('completion_date', completionDate);
+    }
+
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/goals/uncomplete?${params.toString()}`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to unmark goal");
+    }
+
+    const data = await response.json();
+    console.log("Goal unmarked:", data);
+    return data;
+  } catch (error) {
+    console.error("Unmark goal error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gets goal completion history for a date range
+ * @param {string} [startDate] Start date (YYYY-MM-DD)
+ * @param {string} [endDate] End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Completions data with total count
+ * @throws {Error} If request fails
+ */
+export const getGoalCompletions = async (startDate = null, endDate = null) => {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const url = params.toString()
+      ? `${BASE_URL}/api/v1/patients/goals/completions?${params.toString()}`
+      : `${BASE_URL}/api/v1/patients/goals/completions`;
+
+    const response = await authenticatedFetch(url, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get goal completions");
+    }
+
+    const data = await response.json();
+    console.log("Goal completions:", data);
+    return data;
+  } catch (error) {
+    console.error("Get goal completions error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gets goal completion statistics
+ * @returns {Promise<Object>} Statistics data
+ * @throws {Error} If request fails
+ */
+export const getGoalStats = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/goals/stats`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get goal stats");
+    }
+
+    const data = await response.json();
+    console.log("Goal stats:", data);
+    return data;
+  } catch (error) {
+    console.error("Get goal stats error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Initializes daily goals based on user's health goals
+ * @returns {Promise<Object>} Created goals
+ * @throws {Error} If request fails
+ */
+export const initializeDailyGoals = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/patients/goals/initialize`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to initialize daily goals");
+    }
+
+    const data = await response.json();
+    console.log("Daily goals initialized:", data);
+    return data;
+  } catch (error) {
+    console.error("Initialize daily goals error:", error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// PROVIDER ENDPOINTS
+// ============================================================================
+
+/**
+ * Gets the current provider's profile
+ * @returns {Promise<Object>} Provider profile data
+ * @throws {Error} If request fails
+ */
+export const getProviderProfile = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/providers/profile`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get provider profile");
+    }
+
+    const data = await response.json();
+    console.log("Provider profile:", data);
+    return data;
+  } catch (error) {
+    console.error("Get provider profile error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Uploads medical license document
+ * @param {File} file License file (image or PDF, max 10MB)
+ * @returns {Promise<Object>} Upload result with license URL
+ * @throws {Error} If upload fails
+ */
+export const uploadMedicalLicense = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/providers/upload-license`, {
+      method: "POST",
+      headers: {
+        // Don't set Content-Type for FormData, let browser set it with boundary
+        "Authorization": `Bearer ${localStorage.getItem("access-token") || ""}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to upload license");
+    }
+
+    const data = await response.json();
+    console.log("License uploaded:", data);
+    return data;
+  } catch (error) {
+    console.error("Upload license error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gets presigned URL to view provider's own uploaded license
+ * @returns {Promise<Object>} Presigned URL data
+ * @throws {Error} If request fails
+ */
+export const getProviderOwnLicenseUrl = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/providers/license-url`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get license URL");
+    }
+
+    const data = await response.json();
+    console.log("License URL:", data);
+    return data;
+  } catch (error) {
+    console.error("Get license URL error:", error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// ADMIN ENDPOINTS
+// ============================================================================
+
+/**
+ * Gets all users in the system (Admin only)
+ * @returns {Promise<Object>} Users list with total count
+ * @throws {Error} If request fails
+ */
+export const getAllUsers = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/admins/users`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get users");
+    }
+
+    const data = await response.json();
+    console.log("All users:", data);
+    return data;
+  } catch (error) {
+    console.error("Get all users error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gets all providers with optional license status filter (Admin only)
+ * @param {string} [licenseStatus] Filter by license status (pending, approved, rejected)
+ * @returns {Promise<Object>} Providers list with total count
+ * @throws {Error} If request fails
+ */
+export const getAllProviders = async (licenseStatus = null) => {
+  try {
+    const url = licenseStatus
+      ? `${BASE_URL}/api/v1/admins/providers?license_status=${licenseStatus}`
+      : `${BASE_URL}/api/v1/admins/providers`;
+
+    const response = await authenticatedFetch(url, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get providers");
+    }
+
+    const data = await response.json();
+    console.log("All providers:", data);
+    return data;
+  } catch (error) {
+    console.error("Get all providers error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Updates provider's license status (Admin only)
+ * @param {string} providerId Provider ID
+ * @param {string} status New status (approved or rejected)
+ * @returns {Promise<Object>} Updated provider data
+ * @throws {Error} If request fails
+ */
+export const updateProviderLicenseStatus = async (providerId, status) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/admins/providers/${providerId}/license-status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to update license status");
+    }
+
+    const data = await response.json();
+    console.log("License status updated:", data);
+    return data;
+  } catch (error) {
+    console.error("Update license status error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gets presigned URL for viewing a provider's license (Admin only)
+ * @param {string} providerId Provider ID
+ * @returns {Promise<Object>} Presigned URL data
+ * @throws {Error} If request fails
+ */
+export const getProviderLicenseUrlAdmin = async (providerId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/admins/providers/${providerId}/license-url`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get license URL");
+    }
+
+    const data = await response.json();
+    console.log("Provider license URL:", data);
+    return data;
+  } catch (error) {
+    console.error("Get provider license URL error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Updates provider profile data (Admin only)
+ * @param {string} providerId Provider ID
+ * @param {Object} updateData Update data
+ * @returns {Promise<Object>} Updated provider data
+ * @throws {Error} If request fails
+ */
+export const updateProvider = async (providerId, updateData) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/admins/providers/${providerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(updateData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to update provider");
+    }
+
+    const data = await response.json();
+    console.log("Provider updated:", data);
+    return data;
+  } catch (error) {
+    console.error("Update provider error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Deletes a provider (Admin only)
+ * @param {string} providerId Provider ID
+ * @returns {Promise<Object>} Deletion result
+ * @throws {Error} If request fails
+ */
+export const deleteProvider = async (providerId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/admins/providers/${providerId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to delete provider");
+    }
+
+    const data = await response.json();
+    console.log("Provider deleted:", data);
+    return data;
+  } catch (error) {
+    console.error("Delete provider error:", error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// BACKWARD COMPATIBILITY ALIASES
+// ============================================================================
+// These aliases ensure existing code continues to work with the new API
+
+/**
+ * Alias for getAllUsers (backward compatibility)
+ * @deprecated Use getAllUsers instead
+ */
+export const getAllUsersAdmin = getAllUsers;
+
+/**
+ * Alias for updateProviderLicenseStatus (backward compatibility)
+ * @deprecated Use updateProviderLicenseStatus instead
+ */
+export const updateLicenseStatus = updateProviderLicenseStatus;
+
+/**
+ * Backward compatibility alias - for admin pages to get a provider's license URL
+ * This version takes a providerId parameter (admin use case)
+ */
+export const getProviderLicenseUrl = getProviderLicenseUrlAdmin;
+
+/**
+ * Backward compatibility alias - for provider pages to get their own license URL
+ * This version takes no parameters (provider use case - gets current user's license)
+ */
+export const getLicenseViewUrl = getProviderOwnLicenseUrl;

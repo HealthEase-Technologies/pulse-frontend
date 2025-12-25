@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    
+    /* Brand Colors */
+    --color-primary: 6 106 171; /* #066aab */
+    --color-primary-dark: 5 93 150; /* #055d96 */
+    --color-secondary: 24 99 220; /* #1863dc */
+    --color-secondary-dark: 21 87 194; /* #1557c2 */
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    @apply bg-[#f8fafc] text-gray-900;
+  }
+}
+
+nextjs-portal {
+  display: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
