@@ -1,0 +1,19 @@
+# Global code owners
+* @Huzaifa785
+
+# Frontend specific - require frontend team review
+/app/ @HealthEase-Technologies/frontend-team
+/components/ @HealthEase-Technologies/frontend-team  
+/lib/ @HealthEase-Technologies/frontend-team
+/styles/ @HealthEase-Technologies/frontend-team
+package.json @HealthEase-Technologies/frontend-team @Huzaifa785
+
+# Configuration files
+.env.example @Huzaifa785
+.gitignore @Huzaifa785
+vercel.json @Huzaifa785
+
+# Documentation
+README.md @Huzaifa785
+CONTRIBUTING.md @Huzaifa785
+.github/ @Huzaifa785
