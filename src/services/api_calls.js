@@ -476,15 +476,30 @@ export const getProviderProfile = async () => {
 };
 
 /**
- * Uploads medical license document
+ * Uploads medical license document with provider details
  * @param {File} file License file (image or PDF, max 10MB)
+ * @param {Object} providerDetails Provider information
+ * @param {number} [providerDetails.yearsOfExperience] Years of experience (0-60)
+ * @param {string} providerDetails.specialisation Medical specialisation
+ * @param {string} [providerDetails.about] Short description (max 500 chars)
  * @returns {Promise<Object>} Upload result with license URL
  * @throws {Error} If upload fails
  */
-export const uploadMedicalLicense = async (file) => {
+export const uploadMedicalLicense = async (file, providerDetails = {}) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
+
+    // Add provider details to FormData
+    if (providerDetails.yearsOfExperience !== null && providerDetails.yearsOfExperience !== undefined && providerDetails.yearsOfExperience !== "") {
+      formData.append('years_of_experience', providerDetails.yearsOfExperience.toString());
+    }
+    if (providerDetails.specialisation) {
+      formData.append('specialisation', providerDetails.specialisation);
+    }
+    if (providerDetails.about) {
+      formData.append('about', providerDetails.about);
+    }
 
     // For file uploads, we need to manually handle the fetch to avoid setting Content-Type
     // The browser must set Content-Type with the proper multipart/form-data boundary
