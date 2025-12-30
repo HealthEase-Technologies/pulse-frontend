@@ -486,17 +486,27 @@ export const uploadMedicalLicense = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await authenticatedFetch(`${BASE_URL}/api/v1/providers/upload-license`, {
+    // For file uploads, we need to manually handle the fetch to avoid setting Content-Type
+    // The browser must set Content-Type with the proper multipart/form-data boundary
+    const token = localStorage.getItem("access-token") || "";
+    const response = await fetch(`${BASE_URL}/api/v1/providers/upload-license`, {
       method: "POST",
       headers: {
-        // Don't set Content-Type for FormData, let browser set it with boundary
-        "Authorization": `Bearer ${localStorage.getItem("access-token") || ""}`,
+        "Authorization": `Bearer ${token}`,
+        // DO NOT set Content-Type - let browser set it with boundary
       },
       body: formData,
     });
 
+    // Handle unauthorized manually since we're not using authenticatedFetch
+    if (response.status === 401 || response.status === 403) {
+      console.warn('Unauthorized access detected. Logging out...');
+      handleUnauthorized();
+      throw new Error('Session expired. Please log in again.');
+    }
+
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({ detail: "Failed to upload license" }));
       throw new Error(errorData.detail || "Failed to upload license");
     }
 
