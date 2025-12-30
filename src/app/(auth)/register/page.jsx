@@ -28,10 +28,44 @@ export default function RegisterPage() {
     });
   };
 
+  const validatePassword = (password) => {
+    // Cognito password policy requirements
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[^A-Za-z0-9]/.test(password);
+
+    if (password.length < minLength) {
+      return "Password must be at least 8 characters long";
+    }
+    if (!hasUpperCase) {
+      return "Password must contain at least one uppercase letter";
+    }
+    if (!hasLowerCase) {
+      return "Password must contain at least one lowercase letter";
+    }
+    if (!hasNumber) {
+      return "Password must contain at least one number";
+    }
+    if (!hasSpecialChar) {
+      return "Password must contain at least one special character (!@#$%^&* etc.)";
+    }
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Validate password before submitting to Cognito
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      setError(passwordError);
+      setLoading(false);
+      return;
+    }
 
     try {
       await signup(
@@ -255,7 +289,7 @@ export default function RegisterPage() {
               </button>
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              Password must be at least 8 characters
+              Must contain: 8+ characters, uppercase, lowercase, number, and special character
             </p>
           </div>
 

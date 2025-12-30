@@ -20,6 +20,11 @@ export default function LicenseSubmissionPage() {
   const [licenseUrl, setLicenseUrl] = useState(null);
   const router = useRouter();
 
+  // New form fields
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
+  const [specialisation, setSpecialisation] = useState("");
+  const [about, setAbout] = useState("");
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -28,6 +33,18 @@ export default function LicenseSubmissionPage() {
     try {
       const data = await getProviderProfile();
       setProfile(data);
+
+      // Populate form fields if data exists
+      if (data.years_of_experience !== null && data.years_of_experience !== undefined) {
+        setYearsOfExperience(data.years_of_experience.toString());
+      }
+      if (data.specialisation) {
+        setSpecialisation(data.specialisation);
+      }
+      if (data.about) {
+        setAbout(data.about);
+      }
+
       setError(""); // Clear any previous errors
     } catch (err) {
       console.error("Failed to load profile:", err);
@@ -83,13 +100,32 @@ export default function LicenseSubmissionPage() {
       return;
     }
 
+    if (!specialisation || !specialisation.trim()) {
+      setError("Specialisation is required");
+      return;
+    }
+
+    if (yearsOfExperience !== "" && (parseInt(yearsOfExperience) < 0 || parseInt(yearsOfExperience) > 60)) {
+      setError("Years of experience must be between 0 and 60");
+      return;
+    }
+
+    if (about && about.length > 500) {
+      setError("About description must be 500 characters or less");
+      return;
+    }
+
     setUploading(true);
     setError("");
     setSuccess("");
 
     try {
-      const result = await uploadMedicalLicense(file);
-      setSuccess("License uploaded successfully! Your submission is pending review.");
+      await uploadMedicalLicense(file, {
+        yearsOfExperience: yearsOfExperience !== "" ? parseInt(yearsOfExperience) : null,
+        specialisation: specialisation.trim(),
+        about: about.trim() || null
+      });
+      setSuccess("License and profile information uploaded successfully! Your submission is pending review.");
       setFile(null);
       setPreview(null);
 
@@ -150,9 +186,9 @@ export default function LicenseSubmissionPage() {
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PROVIDER]}>
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Medical License Submission</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Medical License & Profile Submission</h1>
       <p className="text-gray-600 mb-8">
-        Upload your medical license for verification. Accepted formats: JPEG, PNG, PDF (max 10MB)
+        Complete your provider profile by uploading your medical license and providing your professional details.
       </p>
 
       {/* Current License Status - Only show if license exists */}
@@ -199,7 +235,7 @@ export default function LicenseSubmissionPage() {
       {/* Upload Form */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          {profile?.license_url ? 'Upload New License' : 'Upload Your License'}
+          {profile?.license_url ? 'Update License & Profile' : 'Upload License & Complete Profile'}
         </h2>
 
         {error && (
@@ -215,18 +251,102 @@ export default function LicenseSubmissionPage() {
         )}
 
         <form onSubmit={handleSubmit}>
+          {/* Years of Experience */}
+          <div className="mb-6">
+            <label
+              htmlFor="years-of-experience"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Years of Experience <span className="text-gray-500">(Optional)</span>
+            </label>
+            <input
+              id="years-of-experience"
+              type="number"
+              min="0"
+              max="60"
+              value={yearsOfExperience}
+              onChange={(e) => setYearsOfExperience(e.target.value)}
+              placeholder="e.g., 5"
+              className="block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              Enter your years of medical experience (0-60)
+            </p>
+          </div>
+
+          {/* Specialisation */}
+          <div className="mb-6">
+            <label
+              htmlFor="specialisation"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Specialisation <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="specialisation"
+              value={specialisation}
+              onChange={(e) => setSpecialisation(e.target.value)}
+              required
+              className="block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select your specialisation</option>
+              <option value="General Practice">General Practice</option>
+              <option value="Cardiology">Cardiology</option>
+              <option value="Neurology">Neurology</option>
+              <option value="Pediatrics">Pediatrics</option>
+              <option value="Surgery">Surgery</option>
+              <option value="Orthopedics">Orthopedics</option>
+              <option value="Dermatology">Dermatology</option>
+              <option value="Psychiatry">Psychiatry</option>
+              <option value="Radiology">Radiology</option>
+              <option value="Anesthesiology">Anesthesiology</option>
+              <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
+              <option value="Ophthalmology">Ophthalmology</option>
+              <option value="Emergency Medicine">Emergency Medicine</option>
+              <option value="Internal Medicine">Internal Medicine</option>
+              <option value="Other">Other</option>
+            </select>
+            <p className="mt-2 text-xs text-gray-500">
+              Select your medical specialisation
+            </p>
+          </div>
+
+          {/* About */}
+          <div className="mb-6">
+            <label
+              htmlFor="about"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              About <span className="text-gray-500">(Optional)</span>
+            </label>
+            <textarea
+              id="about"
+              value={about}
+              onChange={(e) => setAbout(e.target.value)}
+              maxLength={500}
+              rows={4}
+              placeholder="Brief description about yourself, your experience, and areas of expertise..."
+              className="block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              {about.length}/500 characters
+            </p>
+          </div>
+
+          {/* License Document */}
           <div className="mb-6">
             <label
               htmlFor="license-file"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              License Document
+              License Document <span className="text-red-500">*</span>
             </label>
             <input
               id="license-file"
               type="file"
               accept="image/jpeg,image/png,image/jpg,application/pdf"
               onChange={handleFileChange}
+              required
               className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-md file:border-0
@@ -274,7 +394,7 @@ export default function LicenseSubmissionPage() {
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled={!file || uploading}
+              disabled={!file || !specialisation || uploading}
               className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {uploading ? (
@@ -286,7 +406,7 @@ export default function LicenseSubmissionPage() {
                   Uploading...
                 </span>
               ) : (
-                'Upload License'
+                'Submit License & Profile'
               )}
             </button>
 
