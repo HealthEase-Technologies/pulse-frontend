@@ -174,6 +174,85 @@ export const getCurrentUser = async () => {
   }
 };
 
+export const acceptConnectionRequest = async (connectionId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/${connectionId}/accept`, {
+      method: "PATCH",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to accept connection request");
+    }
+
+    const data = await response.json();
+    console.log("Connection accepted:", data);
+    return data;
+  } catch (error) {
+    console.error("Accept connection error:", error);
+    throw error;
+  }
+};
+
+export const rejectConnectionRequest = async (connectionId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/${connectionId}/reject`, {
+      method: "PATCH",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to reject connection request");
+    }
+
+    const data = await response.json();
+    console.log("Connection rejected:", data);
+    return data;
+  } catch (error) {
+    console.error("Reject connection error:", error);
+    throw error;
+  }
+};
+
+export const disconnectFromProvider = async (connectionId) => {
+  try {
+    // Note: The Swagger image shows DELETE, so we use DELETE instead of PATCH
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/${connectionId}`, {
+      method: "DELETE", 
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to disconnect from provider");
+    }
+
+    // Some DELETE endpoints return 204 (No Content), so we check before parsing JSON
+    return response.status === 204 ? { success: true } : await response.json();
+  } catch (error) {
+    console.error("Disconnect error:", error);
+    throw error;
+  }
+};
+
+//add this NEW function (keep your disconnectFromProvider as is!)
+export const getMyConnections = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/my-connections`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch connections");
+    }
+
+    const data = await response.json();
+    return data.connections; // Returns array of connections with IDs
+  } catch (error) {
+    console.error("Error fetching connections:", error);
+    throw error;
+  }
+};
 // ============================================================================
 // PATIENT ENDPOINTS
 // ============================================================================
@@ -446,6 +525,54 @@ export const initializeDailyGoals = async () => {
   }
 };
 
+
+export const getProvidersDirectory = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/providers/directory`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to initialize daily goals");
+    }
+
+    const data = await response.json();
+    console.log("Directory data:", data);
+    return data;
+  } catch (error) {
+    console.error("Get providers directory error:", error);
+    throw error;
+  }
+};
+// ============================================================================
+// HCP PROVIDER CONNECTION ENDPOINTS
+// ============================================================================
+export const sendConnectionToHcp = async (providerUserId) => {
+  try {
+    if (!providerUserId) {
+      throw new Error("Provider user id is required");
+    }
+
+    const params = new URLSearchParams({ provider_user_id: providerUserId });
+
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/request?${params.toString()}`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to send connection request to HCP");
+    }
+
+    const data = await response.json();
+    console.log("Send connection request response:", data);
+    return data;
+  } catch (error) {
+    console.error("Send connection request error:", error);
+    throw error;
+  }
+};
 // ============================================================================
 // PROVIDER ENDPOINTS
 // ============================================================================
@@ -558,7 +685,25 @@ export const getProviderOwnLicenseUrl = async () => {
     throw error;
   }
 };
+export const getPatientToHCP = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/requests`, {
+      method: "GET",
+    });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to receive patient request");
+    }
+
+    const data = await response.json();
+    console.log("Patient to HCP requests:", data);
+    return data;
+  } catch (error) {
+    console.error("Get patient to HCP requests error:", error);
+    throw error;
+  }
+};
 // ============================================================================
 // ADMIN ENDPOINTS
 // ============================================================================
