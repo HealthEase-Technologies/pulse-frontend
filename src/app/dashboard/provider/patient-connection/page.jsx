@@ -213,11 +213,39 @@ export default function PatientConnections() {
                 {selectedPatient.patient_health_goals?.length > 0 ? (
                   <ul className="space-y-2">
                     {selectedPatient.patient_health_goals.map((goal, i) => (
-                      <li key={i}>• {goal}</li>
+                      <li key={i} className="flex items-center gap-2">
+                        <span>•</span>
+                        <span className="flex-1">
+                          {typeof goal === 'string' ? goal : goal.goal}
+                        </span>
+                        {typeof goal === 'object' && goal.frequency && (
+                          <span className="text-xs text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded">
+                            {goal.frequency}
+                          </span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 ) : (
                   <p className="text-gray-500">No health goals provided</p>
+                )}
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
+                <h3 className="font-semibold mb-4 pb-2 border-b">⚠️ Health Restrictions</h3>
+                {selectedPatient.patient_health_restrictions?.length > 0 ? (
+                  <ul className="space-y-2">
+                    {selectedPatient.patient_health_restrictions.map((restriction, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <span>•</span>
+                        <span className="text-orange-700">
+                          {typeof restriction === 'string' ? restriction : restriction}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">No health restrictions provided</p>
                 )}
               </div>
 
