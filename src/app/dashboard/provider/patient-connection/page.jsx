@@ -72,6 +72,18 @@ export default function PatientConnections() {
     return date.toLocaleDateString();
   };
 
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return "N/A";
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -199,7 +211,7 @@ export default function PatientConnections() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Age</p>
-                    <p className="font-medium">{selectedPatient.patient_age || "N/A"}</p>
+                    <p className="font-medium">{calculateAge(selectedPatient.patient_date_of_birth)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Requested</p>
@@ -231,24 +243,6 @@ export default function PatientConnections() {
                 )}
               </div>
 
-              <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
-                <h3 className="font-semibold mb-4 pb-2 border-b">⚠️ Health Restrictions</h3>
-                {selectedPatient.patient_health_restrictions?.length > 0 ? (
-                  <ul className="space-y-2">
-                    {selectedPatient.patient_health_restrictions.map((restriction, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <span>•</span>
-                        <span className="text-orange-700">
-                          {typeof restriction === 'string' ? restriction : restriction}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500">No health restrictions provided</p>
-                )}
-              </div>
-
               <div className="bg-gray-50 rounded-lg p-6 border">
                 <h3 className="font-semibold mb-4 pb-2 border-b">Connection Details</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -257,8 +251,8 @@ export default function PatientConnections() {
                     <StatusBadge status={selectedPatient.status} />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Responded At</p>
-                    <p className="font-medium">{formatDate(selectedPatient.responded_at) || "Not yet responded"}</p>
+                    <p className="text-sm text-gray-600">Accepted At</p>
+                    <p className="font-medium">{formatDate(selectedPatient.accepted_at) || "Not yet accepted"}</p>
                   </div>
                 </div>
               </div>
