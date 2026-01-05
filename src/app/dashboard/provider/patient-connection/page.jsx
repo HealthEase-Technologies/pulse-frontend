@@ -72,18 +72,6 @@ export default function PatientConnections() {
     return date.toLocaleDateString();
   };
 
-  const calculateAge = (dateOfBirth) => {
-    if (!dateOfBirth) return "N/A";
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -211,7 +199,7 @@ export default function PatientConnections() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Age</p>
-                    <p className="font-medium">{calculateAge(selectedPatient.patient_date_of_birth)}</p>
+                    <p className="font-medium">{selectedPatient.patient_age || "N/A"}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Requested</p>
