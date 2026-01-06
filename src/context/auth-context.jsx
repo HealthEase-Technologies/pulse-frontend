@@ -155,8 +155,33 @@ export const AuthProvider = ({ children }) => {
             resolve(result);
           } catch (dbError) {
             console.error("Database registration error:", dbError);
-            // Cognito user was created but DB registration failed
-            setError("Account created but registration incomplete. Please contact support.");
+
+            // CRITICAL: Rollback Cognito user creation to maintain data integrity
+            // If database registration fails, delete the user from Cognito
+            try {
+              const cognitoUser = new CognitoUser({
+                Username: username,
+                Pool,
+              });
+
+              // Delete user from Cognito to prevent orphaned accounts
+              await new Promise((deleteResolve, deleteReject) => {
+                cognitoUser.deleteUser((deleteErr) => {
+                  if (deleteErr) {
+                    console.error("Failed to rollback Cognito user:", deleteErr);
+                    deleteReject(deleteErr);
+                  } else {
+                    console.log("Successfully rolled back Cognito user creation");
+                    deleteResolve();
+                  }
+                });
+              });
+            } catch (rollbackError) {
+              console.error("Rollback failed:", rollbackError);
+            }
+
+            // Cognito user creation was rolled back due to DB registration failure
+            setError("Registration failed. Please try again. If the issue persists, contact support.");
             reject(dbError);
           }
         }

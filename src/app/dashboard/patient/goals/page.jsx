@@ -252,7 +252,7 @@ export default function MyGoalsPage() {
 
         {/* Stats Cards */}
         {!statsLoading && stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="text-sm text-gray-500 mb-1">Current Streak</div>
               <div className="text-3xl font-bold text-blue-600">
@@ -279,8 +279,16 @@ export default function MyGoalsPage() {
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="text-sm text-gray-500 mb-1">Total Completed</div>
-              <div className="text-3xl font-bold text-orange-600">
+              <div className="text-3xl font-bold text-emerald-600">
                 {stats.total_completed}
+                <span className="text-lg text-gray-500 ml-1">goals</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="text-sm text-gray-500 mb-1">Total Missed</div>
+              <div className="text-3xl font-bold text-red-600">
+                {stats.total_missed}
                 <span className="text-lg text-gray-500 ml-1">goals</span>
               </div>
             </div>
