@@ -573,6 +573,141 @@ export const sendConnectionToHcp = async (providerUserId) => {
     throw error;
   }
 };
+
+//getting devices available for monitoring patients
+export const getDevices = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/types`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch devices");
+    }
+
+    const data = await response.json();
+    console.log("Get devices response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get devices error:", error);
+    throw error;
+  }
+};
+
+//getting user's connected devices
+export const getMyDevices = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/my-devices`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch my devices");
+    }
+
+    const data = await response.json();
+    console.log("Get my devices response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get my devices error:", error);
+    throw error;
+  }
+};
+
+//connecting a device
+export const connectDevice = async ({ deviceType, deviceName }) => {
+  try {
+    const payload = {
+      device_type: deviceType,
+      device_name: deviceName,
+    };
+
+    console.log("CONNECT payload:", payload);
+
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.log("CONNECT error response:", data);
+      throw new Error(data.detail || "Failed to connect device");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Connect device error:", error);
+    throw error;
+  }
+};
+
+//disconnecting a device
+export const disconnectDevice = async (deviceId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/${deviceId}/disconnect`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to disconnect device");
+    }
+
+    const data = await response.json();
+    console.log("Disconnect device response:", data);
+    return data;
+  } catch (error) {
+    console.error("Disconnect device error:", error);
+    throw error;
+  }
+};
+
+//get specific device details
+export const getDeviceDetails = async (deviceId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/${deviceId}`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch device details");
+    }
+
+    const data = await response.json();
+    console.log("Get device details response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get device details error:", error);
+    throw error;
+  }
+};
+
+//simulate device data for testing/demo
+export const simulateDeviceData = async (deviceId) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/${deviceId}/simulate-data`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to simulate device data");
+    }
+
+    const data = await response.json();
+    console.log("Simulate device data response:", data);
+    return data;
+  } catch (error) {
+    console.error("Simulate device data error:", error);
+    throw error;
+  }
+};
 // ============================================================================
 // PROVIDER ENDPOINTS
 // ============================================================================
