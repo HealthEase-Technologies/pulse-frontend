@@ -689,10 +689,11 @@ export const getDeviceDetails = async (deviceId) => {
 };
 
 //simulate device data for testing/demo
-export const simulateDeviceData = async (deviceId) => {
+export const simulateDeviceData = async (deviceId, daysOfHistory = 1) => {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/api/v1/devices/${deviceId}/simulate-data`, {
       method: "POST",
+      body: JSON.stringify({ days_of_history: daysOfHistory }),
     });
 
     if (!response.ok) {
