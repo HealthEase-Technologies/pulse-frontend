@@ -31,6 +31,12 @@ export default function PatientConnections() {
       const data = await getPatientToHCP();
       setAllRequests(data.requests || []);
       console.log("Patient connection requests:", data);
+      // Debug: Log patient_user_id for each request
+      if (data.requests) {
+        data.requests.forEach((req, idx) => {
+          console.log(`Request ${idx}: status=${req.status}, patient_user_id=${req.patient_user_id}, patient_id=${req.patient_id}`);
+        });
+      }
     } catch (error) {
       console.error("Error fetching patient requests:", error);
     } finally {
