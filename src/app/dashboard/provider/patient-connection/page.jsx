@@ -1,14 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
-import { getPatientToHCP, acceptConnectionRequest, rejectConnectionRequest } from "@/services/api_calls";
+import { getPatientToHCP, acceptConnectionRequest, rejectConnectionRequest, getPatientDashboardForProvider } from "@/services/api_calls";
+
+const CARD_COLORS = {
+  heart_rate: "from-rose-50 to-orange-50 border-rose-200",
+  blood_pressure_systolic: "from-indigo-50 to-blue-50 border-indigo-200",
+  blood_pressure_diastolic: "from-indigo-50 to-blue-50 border-indigo-200",
+  glucose: "from-amber-50 to-amber-100 border-amber-200",
+  steps: "from-emerald-50 to-teal-50 border-emerald-200",
+  sleep: "from-slate-50 to-slate-100 border-slate-200",
+  default: "from-gray-50 to-gray-100 border-gray-200",
+};
 
 export default function PatientConnections() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [biomarkers, setBiomarkers] = useState(null);
+  const [biomarkersLoading, setBiomarkersLoading] = useState(false);
+  const [biomarkersError, setBiomarkersError] = useState("");
   const [allRequests, setAllRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +41,34 @@ export default function PatientConnections() {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  const loadBiomarkersForPatient = async (patient) => {
+    if (!patient?.patient_user_id || patient.status !== "accepted") {
+      setBiomarkers(null);
+      setBiomarkersError("");
+      setBiomarkersLoading(false);
+      return;
+    }
+    try {
+      setBiomarkersLoading(true);
+      setBiomarkersError("");
+      const data = await getPatientDashboardForProvider(patient.patient_user_id);
+      setBiomarkers(data);
+    } catch (err) {
+      setBiomarkersError(err?.message || "Failed to load biomarkers");
+      setBiomarkers(null);
+    } finally {
+      setBiomarkersLoading(false);
+    }
+  };
+
+  const handleViewDetails = async (patient) => {
+    setSelectedPatient(patient);
+    setBiomarkers(null);
+    setBiomarkersError("");
+    setBiomarkersLoading(false);
+    await loadBiomarkersForPatient(patient);
+  };
 
   const handleAccept = async (connectionId, patientName) => {
     try {
@@ -137,13 +179,25 @@ export default function PatientConnections() {
                       <StatusBadge status={patient.status} />
                     </td>
                     <td className="px-6 py-4">{formatDate(patient.requested_at)}</td>
-                    <td className="px-6 py-4 flex gap-3">
+                    <td className="px-6 py-4 flex flex-col items-start gap-2">
                       <button
-                        onClick={() => setSelectedPatient(patient)}
+                        onClick={() => handleViewDetails(patient)}
                         className="text-blue-600 hover:text-blue-800 font-medium"
                       >
                         View Details
                       </button>
+                      <Link
+                        href={patient.patient_user_id ? `/dashboard/provider/patient-connection/biomarkers/${patient.patient_user_id}` : "#"}
+                        className={`font-medium ${patient.status === "accepted" && patient.patient_user_id ? "text-indigo-600 hover:text-indigo-800" : "text-gray-400 cursor-not-allowed"}`}
+                        aria-disabled={patient.status !== "accepted" || !patient.patient_user_id}
+                        onClick={(e) => {
+                          if (patient.status !== "accepted" || !patient.patient_user_id) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        View History
+                      </Link>
                       {patient.status === "pending" && (
                         <>
                           <button
@@ -261,6 +315,36 @@ export default function PatientConnections() {
                     <p className="font-medium">{formatDate(selectedPatient.accepted_at) || "Not yet accepted"}</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 border">
+                <h3 className="font-semibold mb-4 pb-2 border-b">Current Biomarkers</h3>
+                {selectedPatient.status !== "accepted" ? (
+                  <p className="text-sm text-gray-600">Biomarkers available after the connection is accepted.</p>
+                ) : biomarkersLoading ? (
+                  <p className="text-sm text-gray-600">Loading biomarkers...</p>
+                ) : biomarkersError ? (
+                  <p className="text-sm text-red-700">{biomarkersError}</p>
+                ) : !biomarkers ? (
+                  <p className="text-sm text-gray-600">No biomarker data available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Object.entries(biomarkers).map(([key, value]) => {
+                      if (!value) return null;
+                      const metaLabel = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                      const colors = CARD_COLORS[key] || CARD_COLORS.default;
+                      return (
+                        <div
+                          key={key}
+                          className={`rounded-lg border px-3 py-3 bg-gradient-to-br ${colors} shadow-sm`}
+                        >
+                          <p className="text-xs uppercase tracking-wide text-gray-600">{metaLabel}</p>
+                          <p className="text-xl font-semibold text-gray-900">{value.value} {value.unit}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -709,6 +709,130 @@ export const simulateDeviceData = async (deviceId, daysOfHistory = 1) => {
     throw error;
   }
 };
+//sets biomarker ranges
+export const getBiomarkerRanges = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/biomarkers/ranges`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch biomarker ranges");
+    }
+
+    const data = await response.json();
+    console.log("Get biomarker ranges response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get biomarker ranges error:", error);
+    throw error;
+  }
+};
+//gets biomarker dashboard summary
+export const getBiomarkerDashboard = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/biomarkers/dashboard`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch biomarker dashboard");
+    }
+
+    const data = await response.json();
+    console.log("Get biomarker dashboard response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get biomarker dashboard error:", error);
+    throw error;
+  }
+};
+//gets biomarker history for a specific biomarker type
+export const getBiomarkerHistory = async (biomarkerType, { limit = 100, offset = 0 } = {}) => {
+  if (!biomarkerType) {
+    throw new Error("biomarkerType is required to fetch biomarker history");
+  }
+
+  try {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/biomarkers/history/${encodeURIComponent(biomarkerType)}?${params.toString()}`,
+      {
+        method: "GET",
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch biomarker history");
+    }
+
+    const data = await response.json();
+    console.log("Get biomarker history response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get biomarker history error:", error);
+    throw error;
+  }
+};
+// gets all biomarkers
+export const getAllBiomarkers = async ({ limit = 100, offset = 0 } = {}) => {
+  try {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/biomarkers/all?${params.toString()}`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to fetch biomarker all");
+    }
+
+    const data = await response.json();
+    console.log("Get biomarker all response:", data);
+    return data;
+  } catch (error) {
+    console.error("Get biomarker all error:", error);
+    throw error;
+  }
+};
+
+// inserts new biomarker data
+export const insertBiomarkerData = async (biomarkerData) => {
+  try {
+    const payload = { ...biomarkerData };
+
+    if (!payload.device_id) {
+      const devicesData = await getMyDevices();
+      const devices = Array.isArray(devicesData) ? devicesData : (devicesData.devices || []);
+      
+      if (devices.length > 0) {
+        payload.device_id = devices[0].id;
+      }
+    }
+
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/biomarkers/`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to insert biomarker data");
+    }
+
+    const data = await response.json();
+    console.log("Insert biomarker data response:", data);
+    return data;
+  } catch (error) {
+    console.error("Insert biomarker data error:", error);
+    throw error;
+  }
+};
+
+
 // ============================================================================
 // PROVIDER ENDPOINTS
 // ============================================================================
@@ -837,6 +961,52 @@ export const getPatientToHCP = async () => {
     return data;
   } catch (error) {
     console.error("Get patient to HCP requests error:", error);
+    throw error;
+  }
+};
+
+export const getPatientDashboardForProvider = async (patientUserId) => {
+  if (!patientUserId) throw new Error("patientUserId is required");
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/biomarkers/patient/${encodeURIComponent(patientUserId)}/dashboard`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get patient dashboard");
+    }
+
+    const data = await response.json();
+    console.log("Patient dashboard:", data);
+    return data;
+  } catch (error) {
+    console.error("Get patient dashboard error:", error);
+    throw error;
+  }
+};
+
+export const getPatientHistoryForProvider = async (patientUserId, biomarkerType, { limit = 100, offset = 0 } = {}) => {
+  if (!patientUserId) throw new Error("patientUserId is required");
+  if (!biomarkerType) throw new Error("biomarkerType is required");
+  try {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/biomarkers/patient/${encodeURIComponent(patientUserId)}/history/${encodeURIComponent(biomarkerType)}?${params.toString()}`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get patient history");
+    }
+
+    const data = await response.json();
+    console.log("Patient history:", data);
+    return data;
+  } catch (error) {
+    console.error("Get patient history error:", error);
     throw error;
   }
 };
