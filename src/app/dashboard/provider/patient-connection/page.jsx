@@ -58,9 +58,22 @@ export default function PatientConnections() {
     try {
       setBiomarkersLoading(true);
       setBiomarkersError("");
+      console.log("Loading biomarkers for patient_user_id:", patient.patient_user_id);
       const data = await getPatientDashboardForProvider(patient.patient_user_id);
+      console.log("Biomarkers data received:", data);
+      console.log("Biomarkers data type:", typeof data);
+      console.log("Biomarkers data keys:", data ? Object.keys(data) : "null");
+      // Check if data has any non-null values
+      if (data && typeof data === 'object') {
+        const hasData = Object.values(data).some(val => val !== null && val !== undefined);
+        console.log("Has biomarker data:", hasData);
+        if (!hasData) {
+          console.warn("Biomarkers object is empty or all values are null");
+        }
+      }
       setBiomarkers(data);
     } catch (err) {
+      console.error("Error loading biomarkers:", err);
       setBiomarkersError(err?.message || "Failed to load biomarkers");
       setBiomarkers(null);
     } finally {
@@ -331,12 +344,20 @@ export default function PatientConnections() {
                   <p className="text-sm text-gray-600">Loading biomarkers...</p>
                 ) : biomarkersError ? (
                   <p className="text-sm text-red-700">{biomarkersError}</p>
-                ) : !biomarkers ? (
+                ) : (() => {
+                  // Check if biomarkers data is valid and has at least one non-null value
+                  if (!biomarkers || typeof biomarkers !== 'object') return true;
+                  if (Object.keys(biomarkers).length === 0) return true;
+                  const hasValidData = Object.values(biomarkers).some(
+                    val => val !== null && val !== undefined && typeof val === 'object' && val.value !== undefined
+                  );
+                  return !hasValidData;
+                })() ? (
                   <p className="text-sm text-gray-600">No biomarker data available.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.entries(biomarkers).map(([key, value]) => {
-                      if (!value) return null;
+                      if (!value || typeof value !== 'object' || !value.value) return null;
                       const metaLabel = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
                       const colors = CARD_COLORS[key] || CARD_COLORS.default;
                       return (
