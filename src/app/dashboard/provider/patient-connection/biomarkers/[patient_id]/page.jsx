@@ -155,8 +155,8 @@ export default function ProviderPatientBiomarkersPage() {
 			</div>
 
 			{historyModal.open && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-					<div className="w-full max-w-4xl rounded-xl bg-white shadow-2xl p-6 space-y-4">
+				<div className="mt-6">
+					<div className="w-full max-w-4xl rounded-xl border border-gray-200 bg-white shadow-sm p-6 space-y-4 mx-auto">
 						<div className="flex items-start justify-between gap-3">
 							<div>
 								<p className="text-xs uppercase tracking-wide text-gray-500">History</p>
