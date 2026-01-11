@@ -832,6 +832,28 @@ export const insertBiomarkerData = async (biomarkerData) => {
   }
 };
 
+/**
+ * PATIENT - Get notes written about the current patient by their healthcare provider
+ */
+export const getMyDoctorNotes = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/notes/my-notes`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get doctor notes");
+    }
+
+    const data = await response.json();
+    console.log("Doctor notes:", data);
+    return data;
+  } catch (error) {
+    console.error("Get doctor notes error:", error);
+    throw error;
+  }
+};
 
 // ============================================================================
 // PROVIDER ENDPOINTS
@@ -945,6 +967,8 @@ export const getProviderOwnLicenseUrl = async () => {
     throw error;
   }
 };
+
+//gets patient to HCP connection requests
 export const getPatientToHCP = async () => {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/requests`, {
@@ -965,6 +989,7 @@ export const getPatientToHCP = async () => {
   }
 };
 
+//gets biomarker dashboard summary for a specific patient
 export const getPatientDashboardForProvider = async (patientUserId) => {
   if (!patientUserId) throw new Error("patientUserId is required");
   try {
@@ -987,6 +1012,7 @@ export const getPatientDashboardForProvider = async (patientUserId) => {
   }
 };
 
+//gets biomarker history for a specific patient and biomarker type
 export const getPatientHistoryForProvider = async (patientUserId, biomarkerType, { limit = 100, offset = 0 } = {}) => {
   if (!patientUserId) throw new Error("patientUserId is required");
   if (!biomarkerType) throw new Error("biomarkerType is required");
@@ -1010,6 +1036,146 @@ export const getPatientHistoryForProvider = async (patientUserId, biomarkerType,
     throw error;
   }
 };
+
+//gets notes for a specific patient
+export const getPatientNotes = async (patientUserId) => {
+  if (!patientUserId) throw new Error("patientUserId is required");
+  
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/notes/patient/${encodeURIComponent(patientUserId)}`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get patient notes");
+    }
+
+    const data = await response.json();
+    console.log("Patient notes:", data);
+    return data;
+  } catch (error) {
+    console.error("Get patient notes error:", error);
+    throw error;
+  }
+};
+
+//creates a new patient note
+export const createPatientNote = async (patientUserId, noteData) => {
+  if (!patientUserId) throw new Error("patientUserId is required");
+  
+  try {
+    const payload = {
+      patient_id: patientUserId,
+      content: noteData.content,
+    };
+    
+    //only add note_type if it's provided
+    if (noteData.note_type) {
+      payload.note_type = noteData.note_type;
+    }
+    
+    console.log("Creating note with payload:", payload);
+    
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/notes/`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Create note error response:", errorData);
+      throw new Error(errorData.detail || "Failed to create note");
+    }
+
+    const data = await response.json();
+    console.log("Note created:", data);
+    return data;
+  } catch (error) {
+    console.error("Create note error:", error);
+    throw error;
+  }
+};
+
+//updates existing patient note
+export const updatePatientNote = async (noteId, noteData) => {
+  if (!noteId) throw new Error("noteId is required");
+  
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/notes/${encodeURIComponent(noteId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          content: noteData.content,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to update note");
+    }
+
+    const data = await response.json();
+    console.log("Note updated:", data);
+    return data;
+  } catch (error) {
+    console.error("Update note error:", error);
+    throw error;
+  }
+};
+
+//deletes a patient note
+export const deletePatientNote = async (noteId) => {
+  if (!noteId) throw new Error("noteId is required");
+  
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/notes/${encodeURIComponent(noteId)}`,
+      { method: "DELETE" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to delete note");
+    }
+
+    return response.status === 204 ? { success: true } : await response.json();
+  } catch (error) {
+    console.error("Delete note error:", error);
+    throw error;
+  }
+};
+
+//marks a note as read
+export const markNoteAsRead = async (noteId) => {
+  if (!noteId) throw new Error("noteId is required");
+  
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/notes/${encodeURIComponent(noteId)}/mark-read`,
+      { method: "PATCH" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to mark note as read");
+    }
+
+    const data = await response.json();
+    console.log("Note marked as read:", data);
+    return data;
+  } catch (error) {
+    console.error("Mark note as read error:", error);
+    throw error;
+  }
+};
+
 // ============================================================================
 // ADMIN ENDPOINTS
 // ============================================================================
