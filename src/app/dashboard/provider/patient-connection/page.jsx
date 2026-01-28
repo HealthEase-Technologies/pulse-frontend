@@ -248,6 +248,28 @@ export default function PatientConnections() {
                         View History
                       </Link>
 
+                      <Link
+                        href={
+                          patient.patient_user_id
+                            ? `/dashboard/provider/patient-recommendation?patient_user_id=${patient.patient_user_id}`
+                            : "#"
+                        }
+                        className={`font-medium ${
+                          patient.status === "accepted" && patient.patient_user_id
+                            ? "text-emerald-600 hover:text-emerald-800"
+                            : "text-gray-400 cursor-not-allowed"
+                        }`}
+                        aria-disabled={patient.status !== "accepted" || !patient.patient_user_id}
+                        onClick={(e) => {
+                          if (patient.status !== "accepted" || !patient.patient_user_id) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        View Recommendations
+                      </Link>
+
+
                       {patient.status === "pending" && (
                         <>
                           <button

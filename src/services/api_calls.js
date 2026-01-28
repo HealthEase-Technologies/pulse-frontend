@@ -855,6 +855,167 @@ export const getMyDoctorNotes = async () => {
   }
 };
 
+export const getActiveRecommendations = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/recommendations`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get recommendations");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Get recommendations error:", error);
+    throw error;
+  }
+};
+
+export const generateRecommendations = async (payload = {}) => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/recommendations/generate`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to generate recommendations");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Generate recommendations error:", error);
+    throw error;
+  }
+};
+
+export const getRecommendationHistory = async ({
+  startDate,
+  endDate,
+  limit = 50,
+  offset = 0,
+} = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append("start_date", startDate);
+    if (endDate) params.append("end_date", endDate);
+    if (limit != null) params.append("limit", String(limit));
+    if (offset != null) params.append("offset", String(offset));
+
+    const qs = params.toString();
+    const url = qs
+      ? `${BASE_URL}/api/v1/recommendations/history?${qs}`
+      : `${BASE_URL}/api/v1/recommendations/history`;
+
+    const response = await authenticatedFetch(url, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get recommendation history");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Get recommendation history error:", error);
+    throw error;
+  }
+};
+
+export const getRecommendationById = async (recommendationId) => {
+  if (!recommendationId) throw new Error("recommendationId is required");
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/recommendations/${encodeURIComponent(recommendationId)}`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get recommendation");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Get recommendation by id error:", error);
+    throw error;
+  }
+};
+
+export const submitRecommendationFeedback = async (recommendationId, feedbackData = {}) => {
+  if (!recommendationId) throw new Error("recommendationId is required");
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/recommendations/${encodeURIComponent(recommendationId)}/feedback`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(feedbackData),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to submit feedback");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Submit recommendation feedback error:", error);
+    throw error;
+  }
+};
+
+export const dismissRecommendation = async (recommendationId) => {
+  if (!recommendationId) throw new Error("recommendationId is required");
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/recommendations/${encodeURIComponent(recommendationId)}/dismiss`,
+      { method: "PATCH", body: JSON.stringify({}) }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to dismiss recommendation");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Dismiss recommendation error:", error);
+    throw error;
+  }
+};
+
+export const getPatientRecommendations = async (patientUserId) => {
+  if (!patientUserId) throw new Error("patientUserId is required");
+  try {
+    const response = await authenticatedFetch(
+      `${BASE_URL}/api/v1/recommendations/patient/${encodeURIComponent(patientUserId)}`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to get patient recommendations");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Get patient recommendations error:", error);
+    throw error;
+  }
+};
+
 // ============================================================================
 // PROVIDER ENDPOINTS
 // ============================================================================

@@ -25,9 +25,9 @@ function formatTimestamp(date) {
 
 function StatusBadge({ status }) {
   const statusMap = {
-    pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
-    accepted: { color: "bg-green-100 text-green-800", label: "Accepted" },
-    rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
+    pending: { color: "bg-amber-100 text-amber-800 border border-amber-200", label: "Pending" },
+    accepted: { color: "bg-emerald-100 text-emerald-800 border border-emerald-200", label: "Accepted" },
+    rejected: { color: "bg-rose-100 text-rose-800 border border-rose-200", label: "Rejected" },
   };
   const config = statusMap[status] || { color: "bg-gray-100 text-gray-800", label: status || "Unknown" };
   return (
@@ -257,27 +257,39 @@ useEffect(() => {
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PROVIDER]}>
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
+      <div className="max-w-7xl mx-auto pb-10">
+        <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => router.back()}
-            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            className="inline-flex items-center gap-2 text-sm text-indigo-700 font-semibold hover:text-indigo-900"
           >
             ← Back
           </button>
         </div>
 
         {/* Header - uses REAL patient name/email */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
-          <p className="text-gray-600 mt-1">{patient.email || "—"}</p>
+        <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 border border-indigo-100 shadow-sm">
+          <div className="absolute -right-16 -top-14 h-40 w-40 rounded-full bg-indigo-200/60 blur-3xl" />
+          <div className="absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-emerald-200/50 blur-3xl" />
+          <div className="relative p-6 flex flex-col gap-2">
+            <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
+            <p className="text-gray-700">{patient.email || "—"}</p>
+            <p className="text-sm text-gray-600">Patient ID: {patientUserId}</p>
+            <div className="flex items-center gap-3 mt-2">
+              <StatusBadge status={patient.status} />
+              <span className="inline-flex items-center gap-2 text-sm text-indigo-800 bg-white/70 px-3 py-1 rounded-full border border-indigo-100">
+                <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                Updated: {formatDate(patient.acceptedAt) || "—"}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* LEFT */}
           <div className="lg:col-span-2 space-y-6">
             {/* Personal Information (matches your modal) */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Personal Information</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -300,7 +312,7 @@ useEffect(() => {
             </div>
 
             {/* Health Goals */}
-            <div className="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-6">
+            <div className="bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">🎯 Health Goals</h2>
               {patient.goals?.length > 0 ? (
                 <ul className="space-y-2">
@@ -322,7 +334,7 @@ useEffect(() => {
             </div>
 
             {/* Health Restrictions */}
-            <div className="bg-orange-50 rounded-lg shadow-sm border border-orange-200 p-6">
+            <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 rounded-xl shadow-sm border border-amber-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">⚠️ Health Restrictions</h2>
               {patient.restrictions?.length > 0 ? (
                 <ul className="space-y-2">
@@ -339,7 +351,7 @@ useEffect(() => {
             </div>
 
             {/* Connection Details */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Connection Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -356,7 +368,7 @@ useEffect(() => {
             </div>
 
             {/* Current Biomarkers (matches your modal cards) */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Current Biomarkers</h2>
 
               {!biomarkers ? (
@@ -392,30 +404,30 @@ useEffect(() => {
             </div>
 
             {/* Historical Trends (Sprint requires UI even if endpoint missing) */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">Historical Trends (Last 5 Days)</h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-700">
                 Trend data will appear here once a trends endpoint is connected.
               </p>
             </div>
 
             {/* Previous Notes (Sprint requires display with timestamp + HCP name) */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Previous Notes</h2>
 
               {notes.length === 0 ? (
-                <p className="text-gray-600">No notes yet.</p>
+                <p className="text-gray-700">No notes yet.</p>
               ) : (
                 <div className="space-y-4">
                   {notes.map((note) => (
-                    <div key={note.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div key={note.id} className="p-4 bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 rounded-lg border border-indigo-100">
                       <div
                         className="text-gray-800 prose max-w-none"
                         dangerouslySetInnerHTML={{ __html: note.content || note.html }}
                       />
                       <div className="flex items-center justify-between text-sm mt-3">
-                        <span className="text-gray-600 font-medium">{note.provider_name || note.hcp_name || "Provider"}</span>
-                        <span className="text-gray-500">{formatTimestamp(note.created_at || note.createdAt)}</span>
+                        <span className="text-gray-700 font-semibold">{note.provider_name || note.hcp_name || "Provider"}</span>
+                        <span className="text-gray-600">{formatTimestamp(note.created_at || note.createdAt)}</span>
                       </div>
                       
                       {/* providers receive mark as read */}
@@ -426,7 +438,7 @@ useEffect(() => {
                       </p>
 
                       {/* edit and delete notes buttons*/}
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-indigo-100">
                         <button
                           onClick={() => handleEditNote(note.id)}
                           className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
@@ -455,19 +467,19 @@ useEffect(() => {
 
           {/* RIGHT - Note Taking UI (THIS is what you said you don't see) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8">
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6 sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 {editingNoteId ? 'Edit Note' : 'Add Note / Recommendation'}
               </h2>
 
               {/* AI Suggestion */}
               {showAiSuggestion && !editingNoteId && (
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm font-semibold text-blue-900 mb-1">AI Suggestion</p>
-                  <p className="text-sm text-blue-800">{aiSuggestion}</p>
+                <div className="mb-4 p-4 bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 border border-indigo-100 rounded-lg">
+                  <p className="text-sm font-semibold text-indigo-900 mb-1">AI Suggestion</p>
+                  <p className="text-sm text-indigo-800">{aiSuggestion}</p>
                   <button
                     onClick={handleUseAiSuggestion}
-                    className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    className="mt-3 text-sm text-indigo-700 hover:text-indigo-900 font-semibold"
                   >
                     Use this suggestion
                   </button>
@@ -475,7 +487,7 @@ useEffect(() => {
               )}
 
               {/* Rich Text Toolbar */}
-              <div className="mb-2 flex gap-1 pb-2 border-b border-gray-200">
+              <div className="mb-2 flex gap-1 pb-2 border-b border-indigo-100">
                 <button
                   type="button"
                   onClick={() => formatText("bold")}
@@ -515,7 +527,7 @@ useEffect(() => {
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
-                className="w-full min-h-[280px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                className="w-full min-h-[280px] p-4 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
                 placeholder="Enter your clinical notes and recommendations here..."
                 onInput={() => {
                   // If user starts typing, hide suggestion card (optional)
@@ -529,7 +541,7 @@ useEffect(() => {
                 <button
                   type="button"
                   onClick={handleSaveNote}
-                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
                 >
                   {editingNoteId ? 'Update Note' : 'Save Note'}
                 </button>
@@ -542,7 +554,7 @@ useEffect(() => {
                       clearEditor();
                       setShowAiSuggestion(true);
                     }}
-                    className="px-4 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                    className="px-4 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                   >
                     Cancel
                   </button>

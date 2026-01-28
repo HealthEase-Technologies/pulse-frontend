@@ -96,6 +96,23 @@ if (userRole === "patient") {
   });
 }
 
+    if (userRole === "patient") {
+      baseItems.push({
+        name: "AI Recommendations",
+        href: "/dashboard/patient/ai-recommendations",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 3v4m0 10v4m9-9h-4M7 12H3m12.364-5.364l-2.828 2.828m-4.95 4.95l-2.829 2.829m0-10.607l2.829 2.828m4.95 4.95l2.828 2.829"
+            />
+          </svg>
+        ),
+      });
+    }
+
     // Add provider-specific items
     if (userRole === "provider") {
       baseItems.push({
