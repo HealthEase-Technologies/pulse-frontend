@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
@@ -46,7 +46,7 @@ const pickFirstText = (rec, keys, fallback = "") => {
     return fallback;
 };
 
-export default function ProviderPatientRecommendations() {
+function ProviderPatientRecommendationsContent() {
     const searchParams = useSearchParams();
     const [patients, setPatients] = useState([]);
     const [expandedPatientId, setExpandedPatientId] = useState("");
@@ -302,5 +302,19 @@ export default function ProviderPatientRecommendations() {
                 )}
             </div>
         </RoleProtection>
+    );
+}
+
+export default function ProviderPatientRecommendationsPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+                </div>
+            }
+        >
+            <ProviderPatientRecommendationsContent />
+        </Suspense>
     );
 }
