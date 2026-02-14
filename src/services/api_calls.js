@@ -560,6 +560,13 @@ export const sendConnectionToHcp = async (providerUserId) => {
       method: "POST",
     });
 
+    // Handle unauthorized manually since we're not using authenticatedFetch
+    if (response.status === 401 || response.status === 403) {
+      console.warn('Unauthorized access detected. Logging out...');
+      handleUnauthorized();
+      throw new Error('Session expired. Please log in again.');
+    }
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || "Failed to send connection request to HCP");
@@ -594,6 +601,16 @@ export const getDevices = async () => {
     throw error;
   }
 };
+export const getPatientToHCP = async () => {
+  try {
+    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/requests`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to receive patient request");
+    }
 
 //getting user's connected devices
 export const getMyDevices = async () => {
