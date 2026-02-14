@@ -219,6 +219,7 @@ export default function BiomarkerRangesPage() {
 	const [detailLoading, setDetailLoading] = useState(false);
 	const [detailError, setDetailError] = useState(null);
 	const [detailFrom, setDetailFrom] = useState("");
+	const [alertToast, setAlertToast] = useState(null);
 	const [detailTo, setDetailTo] = useState("");
 
 	useEffect(() => {
@@ -313,7 +314,16 @@ export default function BiomarkerRangesPage() {
 				recorded_at: manualForm.recorded_at ? new Date(manualForm.recorded_at).toISOString() : new Date().toISOString(),
 				notes: manualForm.notes || undefined,
 			};
-			await insertBiomarkerData(payload);
+			const result = await insertBiomarkerData(payload);
+			if (result?.alert_triggered) {
+				setAlertToast({
+					type: result.alert_type,
+					biomarker: asLabel(manualForm.biomarker_type),
+					value: valueNum,
+					unit: manualForm.unit,
+				});
+				setTimeout(() => setAlertToast(null), 6000);
+			}
 			setShowManualModal(false);
 			setManualForm((prev) => ({ ...prev, value: "", recorded_at: "", notes: "" }));
 			await loadRecords();
@@ -366,7 +376,16 @@ export default function BiomarkerRangesPage() {
 					: latest.recorded_at || new Date().toISOString(),
 				notes: deviceForm.notes || latest.notes || undefined,
 			};
-			await insertBiomarkerData(payload);
+			const result = await insertBiomarkerData(payload);
+			if (result?.alert_triggered) {
+				setAlertToast({
+					type: result.alert_type,
+					biomarker: asLabel(deviceForm.biomarker_type),
+					value: valueNum,
+					unit: latest.unit || deviceForm.unit,
+				});
+				setTimeout(() => setAlertToast(null), 6000);
+			}
 			setShowDeviceModal(false);
 			setDeviceForm((prev) => ({ ...prev, recorded_at: nowLocal(), notes: "", device_id }));
 			await loadRecords();
@@ -438,6 +457,38 @@ export default function BiomarkerRangesPage() {
 
 	return (
 		<div className="max-w-6xl mx-auto space-y-6">
+			{/* Alert Toast */}
+			{alertToast && (
+				<div className={`fixed top-4 right-4 z-50 max-w-md rounded-xl shadow-2xl border-l-4 p-4 animate-slide-in ${
+					alertToast.type === "critical"
+						? "bg-red-50 border-red-500"
+						: "bg-amber-50 border-amber-500"
+				}`}>
+					<div className="flex items-start gap-3">
+						<div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+							alertToast.type === "critical" ? "bg-red-100" : "bg-amber-100"
+						}`}>
+							<svg className={`w-5 h-5 ${alertToast.type === "critical" ? "text-red-600" : "text-amber-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+							</svg>
+						</div>
+						<div className="flex-1">
+							<p className={`font-semibold ${alertToast.type === "critical" ? "text-red-800" : "text-amber-800"}`}>
+								{alertToast.type === "critical" ? "Critical Alert" : "Warning Alert"}
+							</p>
+							<p className={`text-sm mt-0.5 ${alertToast.type === "critical" ? "text-red-700" : "text-amber-700"}`}>
+								{alertToast.biomarker}: {alertToast.value} {alertToast.unit} is outside safe range
+							</p>
+						</div>
+						<button onClick={() => setAlertToast(null)} className="text-gray-400 hover:text-gray-600">
+							<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+				</div>
+			)}
+
 			<div className="flex items-start justify-between gap-4">
 				<div className="flex items-start gap-3">
 					<div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-sky-500 via-cyan-500 to-emerald-400 shadow-lg flex items-center justify-center text-white">

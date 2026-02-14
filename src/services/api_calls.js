@@ -1664,3 +1664,186 @@ export const getProviderLicenseUrl = getProviderLicenseUrlAdmin;
  * This version takes no parameters (provider use case - gets current user's license)
  */
 export const getLicenseViewUrl = getProviderOwnLicenseUrl;
+
+
+// ============================================================================
+// THRESHOLD ENDPOINTS (Sprint 7)
+// ============================================================================
+
+/** Patient gets all custom thresholds */
+export const getMyThresholds = async () => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/my-thresholds`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch thresholds");
+  }
+  return await response.json();
+};
+
+/** Patient gets effective (resolved) thresholds */
+export const getEffectiveThresholds = async () => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/effective`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch effective thresholds");
+  }
+  return await response.json();
+};
+
+/** Patient sets/updates a custom threshold */
+export const setMyThreshold = async (thresholdData) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/`,
+    { method: "POST", body: JSON.stringify(thresholdData) }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to set threshold");
+  }
+  return await response.json();
+};
+
+/** Patient deletes a custom threshold */
+export const deleteMyThreshold = async (thresholdId) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/${encodeURIComponent(thresholdId)}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to delete threshold");
+  }
+  return await response.json();
+};
+
+/** Provider sets threshold for a patient */
+export const setPatientThreshold = async (patientUserId, thresholdData) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/patient/${encodeURIComponent(patientUserId)}`,
+    { method: "POST", body: JSON.stringify(thresholdData) }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to set patient threshold");
+  }
+  return await response.json();
+};
+
+/** Provider gets patient's thresholds */
+export const getPatientThresholds = async (patientUserId) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/patient/${encodeURIComponent(patientUserId)}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch patient thresholds");
+  }
+  return await response.json();
+};
+
+/** Provider gets patient's effective thresholds */
+export const getPatientEffectiveThresholds = async (patientUserId) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/patient/${encodeURIComponent(patientUserId)}/effective`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch patient effective thresholds");
+  }
+  return await response.json();
+};
+
+/** Provider deletes their threshold for a patient */
+export const deleteProviderThreshold = async (thresholdId) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/thresholds/provider/${encodeURIComponent(thresholdId)}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to delete provider threshold");
+  }
+  return await response.json();
+};
+
+
+// ============================================================================
+// ALERT ENDPOINTS (Sprint 7)
+// ============================================================================
+
+/** Patient gets alert history */
+export const getAlertHistory = async ({ limit = 50, offset = 0, alertType, status } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (alertType) params.append("alert_type", alertType);
+  if (status) params.append("status", status);
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/alerts/history?${params.toString()}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch alert history");
+  }
+  return await response.json();
+};
+
+/** Patient gets unacknowledged alert count */
+export const getUnacknowledgedAlertCount = async () => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/alerts/unacknowledged-count`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to get alert count");
+  }
+  return await response.json();
+};
+
+/** Patient acknowledges an alert */
+export const acknowledgeAlert = async (alertId) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/alerts/${encodeURIComponent(alertId)}/acknowledge`,
+    { method: "PATCH" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to acknowledge alert");
+  }
+  return await response.json();
+};
+
+/** Provider gets patient alert history */
+export const getPatientAlertHistory = async (patientUserId, { limit = 50, offset = 0 } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/alerts/patient/${encodeURIComponent(patientUserId)}/history?${params.toString()}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch patient alert history");
+  }
+  return await response.json();
+};
+
+/** Provider acknowledges a patient's alert */
+export const providerAcknowledgeAlert = async (alertId) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/alerts/provider/${encodeURIComponent(alertId)}/acknowledge`,
+    { method: "PATCH" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to acknowledge alert");
+  }
+  return await response.json();
+};
