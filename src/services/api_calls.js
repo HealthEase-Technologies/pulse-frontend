@@ -601,16 +601,6 @@ export const getDevices = async () => {
     throw error;
   }
 };
-export const getPatientToHCP = async () => {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/api/v1/connections/requests`, {
-      method: "GET",
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to receive patient request");
-    }
 
 //getting user's connected devices
 export const getMyDevices = async () => {
