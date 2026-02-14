@@ -43,8 +43,8 @@ export default function PatientProfile() {
         reminder_frequency: profile.reminder_frequency || "daily",
         emergency_contacts: profile.emergency_contacts && profile.emergency_contacts.length > 0
           ? [
-              ...profile.emergency_contacts,
-              ...Array(Math.max(0, 3 - profile.emergency_contacts.length)).fill({ name: "", phone: "", relationship: "" })
+              ...profile.emergency_contacts.map(c => ({ ...c })),
+              ...Array.from({ length: Math.max(0, 3 - profile.emergency_contacts.length) }, () => ({ name: "", phone: "", relationship: "" }))
             ].slice(0, 3)
           : [
               { name: "", phone: "", relationship: "" },
@@ -68,11 +68,11 @@ export default function PatientProfile() {
   };
 
   const handleEmergencyContactChange = (index, field, value) => {
-    const updatedContacts = [...formData.emergency_contacts];
-    updatedContacts[index][field] = value;
     setFormData(prev => ({
       ...prev,
-      emergency_contacts: updatedContacts
+      emergency_contacts: prev.emergency_contacts.map((contact, i) =>
+        i === index ? { ...contact, [field]: value } : contact
+      )
     }));
   };
 
