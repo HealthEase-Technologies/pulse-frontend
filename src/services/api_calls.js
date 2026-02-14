@@ -995,26 +995,7 @@ export const dismissRecommendation = async (recommendationId) => {
   }
 };
 
-export const getPatientRecommendations = async (patientUserId) => {
-  if (!patientUserId) throw new Error("patientUserId is required");
-  try {
-    const response = await authenticatedFetch(
-      `${BASE_URL}/api/v1/recommendations/patient/${encodeURIComponent(patientUserId)}`,
-      { method: "GET" }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to get patient recommendations");
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Get patient recommendations error:", error);
-    throw error;
-  }
-};
+// getPatientRecommendations is defined below with statusFilter support
 
 // ============================================================================
 // PROVIDER ENDPOINTS
@@ -1533,32 +1514,6 @@ export const getMyRecommendations = async (category = null) => {
 };
 
 /**
- * Generate new AI-powered health recommendations
- * @param {Object} [options] - Optional generation options
- * @param {string[]} [options.categories] - Categories to generate for
- * @param {boolean} [options.force_regenerate] - Force regeneration
- * @param {number} [options.max_recommendations] - Max recommendations (1-10)
- * @returns {Promise<Object>} Generated recommendations
- */
-export const generateRecommendations = async (options = {}) => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/recommendations/generate`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(options),
-    });
-    if (response.status === 401 || response.status === 403) {
-      handleUnauthorized();
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Generate recommendations error:", error);
-    throw error;
-  }
-};
-
-/**
  * Start working on a recommendation
  * @param {string} recommendationId - Recommendation ID
  * @returns {Promise<Object>} Updated recommendation
@@ -1650,55 +1605,6 @@ export const completeRecommendation = async (recommendationId) => {
 };
 
 /**
- * Dismiss a recommendation
- * @param {string} recommendationId - Recommendation ID
- * @returns {Promise<Object>} Updated recommendation
- */
-export const dismissRecommendation = async (recommendationId) => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/dismiss`, {
-      method: "PATCH",
-      headers: getAuthHeaders(),
-    });
-    if (response.status === 401 || response.status === 403) {
-      handleUnauthorized();
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Dismiss recommendation error:", error);
-    throw error;
-  }
-};
-
-/**
- * Submit feedback for a recommendation
- * @param {string} recommendationId - Recommendation ID
- * @param {Object} feedbackData - Feedback data
- * @param {string} feedbackData.feedback - Feedback type
- * @param {string} [feedbackData.notes] - Optional notes
- * @param {string} [feedbackData.difficulty_experienced] - Optional difficulty
- * @returns {Promise<Object>} Updated recommendation
- */
-export const submitRecommendationFeedback = async (recommendationId, feedbackData) => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/feedback`, {
-      method: "PATCH",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(feedbackData),
-    });
-    if (response.status === 401 || response.status === 403) {
-      handleUnauthorized();
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Submit recommendation feedback error:", error);
-    throw error;
-  }
-};
-
-/**
  * Provider: Get a patient's AI recommendations
  * @param {string} patientUserId - Patient's user ID
  * @param {string} [statusFilter] - Optional status filter
@@ -1706,7 +1612,7 @@ export const submitRecommendationFeedback = async (recommendationId, feedbackDat
  */
 export const getPatientRecommendations = async (patientUserId, statusFilter = null) => {
   try {
-    let url = `${BASE_URL}/api/v1/recommendations/patient/${patientUserId}`;
+    let url = `${BASE_URL}/api/v1/recommendations/patient/${encodeURIComponent(patientUserId)}`;
     if (statusFilter) url += `?status_filter=${statusFilter}`;
     const response = await fetch(url, {
       method: "GET",
