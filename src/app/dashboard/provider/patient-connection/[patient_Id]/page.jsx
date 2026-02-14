@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
-import { getPatientDashboardForProvider, getPatientToHCP, getPatientNotes, createPatientNote, updatePatientNote, deletePatientNote, getPatientRecommendations } from "@/services/api_calls";
+import { getPatientDashboardForProvider, getPatientToHCP, getPatientNotes, createPatientNote, updatePatientNote, deletePatientNote, getPatientRecommendations, getPatientThresholds, getPatientEffectiveThresholds, setPatientThreshold, deleteProviderThreshold, getPatientAlertHistory, providerAcknowledgeAlert } from "@/services/api_calls";
 
 function formatDate(dateString) {
   if (!dateString) return "N/A";
@@ -84,6 +84,13 @@ export default function PatientDetailsPage() {
   const [patientRecs, setPatientRecs] = useState([]);
   const [recsLoading, setRecsLoading] = useState(true);
 
+  // Sprint 7: Thresholds & Alerts
+  const [thresholds, setThresholds] = useState([]);
+  const [effectiveThresholds, setEffectiveThresholds] = useState([]);
+  const [alertHistory, setAlertHistory] = useState([]);
+  const [thresholdEdit, setThresholdEdit] = useState(null); // {biomarker_type, ...}
+  const [thresholdSaving, setThresholdSaving] = useState(false);
+
   const editorRef = useRef(null);
 useEffect(() => {
   let cancelled = false;
@@ -120,12 +127,29 @@ useEffect(() => {
         console.warn("Could not load patient recommendations:", e);
       }
 
+      // 5) Load thresholds & alert history
+      let thresholdsData = [];
+      let effectiveData = [];
+      let alertsData = [];
+      try {
+        [thresholdsData, effectiveData, alertsData] = await Promise.all([
+          getPatientThresholds(patientUserId),
+          getPatientEffectiveThresholds(patientUserId),
+          getPatientAlertHistory(patientUserId, { limit: 20 }),
+        ]);
+      } catch (e) {
+        console.warn("Could not load thresholds/alerts:", e);
+      }
+
       if (!cancelled) {
         setDashboard(dash || null);
         setPatientRequest(match);
         setNotes(notesData.notes || notesData || []);
         setPatientRecs(recsData?.recommendations || []);
         setRecsLoading(false);
+        setThresholds(thresholdsData || []);
+        setEffectiveThresholds(effectiveData || []);
+        setAlertHistory(alertsData?.alerts || []);
       }
     } catch (e) {
       if (!cancelled) setError(e?.message || "Failed to load patient dashboard.");
@@ -535,6 +559,211 @@ useEffect(() => {
                           )}
                           {rec.difficulty && (
                             <span className="text-xs text-gray-500 capitalize">{rec.difficulty}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Sprint 7: Custom Thresholds */}
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Custom Thresholds</h2>
+              <p className="text-xs text-gray-500 mb-3">Set custom warning/critical thresholds for this patient. Your thresholds override patient-set and default values.</p>
+
+              {effectiveThresholds.length === 0 ? (
+                <p className="text-gray-500 text-sm">No threshold data available.</p>
+              ) : (
+                <div className="space-y-3">
+                  {effectiveThresholds.map((t) => {
+                    const isEditing = thresholdEdit?.biomarker_type === t.biomarker_type;
+                    const label = t.biomarker_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+                    return (
+                      <div key={t.biomarker_type} className="rounded-lg border border-gray-200 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-gray-900">{label}</h4>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                              t.source === "provider" ? "bg-purple-100 text-purple-700" :
+                              t.source === "patient" ? "bg-blue-100 text-blue-700" :
+                              "bg-gray-100 text-gray-500"
+                            }`}>
+                              {t.source === "provider" ? "Provider" : t.source === "patient" ? "Patient" : "Default"}
+                            </span>
+                          </div>
+                          {!isEditing && (
+                            <button
+                              onClick={() => setThresholdEdit({
+                                biomarker_type: t.biomarker_type,
+                                warning_low: t.warning_low ?? "",
+                                warning_high: t.warning_high ?? "",
+                                critical_low: t.critical_low ?? "",
+                                critical_high: t.critical_high ?? "",
+                              })}
+                              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                            >
+                              Set Threshold
+                            </button>
+                          )}
+                        </div>
+
+                        {!isEditing ? (
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div><span className="text-gray-400">Crit Low</span><p className="font-medium text-red-600">{t.critical_low ?? "—"}</p></div>
+                            <div><span className="text-gray-400">Warn Low</span><p className="font-medium text-amber-600">{t.warning_low ?? "—"}</p></div>
+                            <div><span className="text-gray-400">Warn High</span><p className="font-medium text-amber-600">{t.warning_high ?? "—"}</p></div>
+                            <div><span className="text-gray-400">Crit High</span><p className="font-medium text-red-600">{t.critical_high ?? "—"}</p></div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="grid grid-cols-4 gap-2 text-xs mb-2">
+                              {["critical_low", "warning_low", "warning_high", "critical_high"].map((field) => (
+                                <div key={field}>
+                                  <label className="text-gray-400 capitalize">{field.replace("_", " ")}</label>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={thresholdEdit[field]}
+                                    onChange={(e) => setThresholdEdit((prev) => ({ ...prev, [field]: e.target.value }))}
+                                    className="w-full mt-0.5 px-1.5 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                disabled={thresholdSaving}
+                                onClick={async () => {
+                                  setThresholdSaving(true);
+                                  try {
+                                    await setPatientThreshold(patientUserId, {
+                                      biomarker_type: thresholdEdit.biomarker_type,
+                                      warning_low: thresholdEdit.warning_low === "" ? null : Number(thresholdEdit.warning_low),
+                                      warning_high: thresholdEdit.warning_high === "" ? null : Number(thresholdEdit.warning_high),
+                                      critical_low: thresholdEdit.critical_low === "" ? null : Number(thresholdEdit.critical_low),
+                                      critical_high: thresholdEdit.critical_high === "" ? null : Number(thresholdEdit.critical_high),
+                                    });
+                                    const [newThresholds, newEffective] = await Promise.all([
+                                      getPatientThresholds(patientUserId),
+                                      getPatientEffectiveThresholds(patientUserId),
+                                    ]);
+                                    setThresholds(newThresholds || []);
+                                    setEffectiveThresholds(newEffective || []);
+                                    setThresholdEdit(null);
+                                  } catch (e) {
+                                    console.error("Failed to save threshold:", e);
+                                  } finally {
+                                    setThresholdSaving(false);
+                                  }
+                                }}
+                                className="text-xs px-2 py-1 bg-indigo-600 text-white rounded font-medium hover:bg-indigo-700 disabled:opacity-50"
+                              >
+                                {thresholdSaving ? "Saving..." : "Save"}
+                              </button>
+                              <button
+                                onClick={() => setThresholdEdit(null)}
+                                className="text-xs px-2 py-1 text-gray-500 hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                              {thresholds.find((x) => x.biomarker_type === thresholdEdit.biomarker_type && x.set_by_role === "provider") && (
+                                <button
+                                  onClick={async () => {
+                                    const existing = thresholds.find((x) => x.biomarker_type === thresholdEdit.biomarker_type && x.set_by_role === "provider");
+                                    if (!existing) return;
+                                    setThresholdSaving(true);
+                                    try {
+                                      await deleteProviderThreshold(existing.id);
+                                      const [newThresholds, newEffective] = await Promise.all([
+                                        getPatientThresholds(patientUserId),
+                                        getPatientEffectiveThresholds(patientUserId),
+                                      ]);
+                                      setThresholds(newThresholds || []);
+                                      setEffectiveThresholds(newEffective || []);
+                                      setThresholdEdit(null);
+                                    } catch (e) {
+                                      console.error("Failed to delete threshold:", e);
+                                    } finally {
+                                      setThresholdSaving(false);
+                                    }
+                                  }}
+                                  className="text-xs px-2 py-1 text-red-500 hover:text-red-700"
+                                >
+                                  Remove Override
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Sprint 7: Alert History */}
+            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Alert History</h2>
+
+              {alertHistory.length === 0 ? (
+                <p className="text-gray-500 text-sm">No alerts triggered for this patient.</p>
+              ) : (
+                <div className="space-y-2">
+                  {alertHistory.map((alert) => {
+                    const isCritical = alert.alert_type === "critical";
+                    const isUnread = alert.status === "triggered" || alert.status === "notified";
+                    const label = alert.biomarker_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`rounded-lg border p-3 ${
+                          isCritical
+                            ? isUnread ? "bg-red-50 border-red-300" : "bg-red-50/50 border-red-200"
+                            : isUnread ? "bg-amber-50 border-amber-300" : "bg-amber-50/50 border-amber-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                              isCritical ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                            }`}>
+                              {isCritical ? "CRITICAL" : "WARNING"}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">{label}</span>
+                            <span className="text-sm text-gray-600">
+                              {alert.value} {alert.unit} ({alert.alert_direction})
+                            </span>
+                          </div>
+                          {isUnread && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await providerAcknowledgeAlert(alert.id);
+                                  setAlertHistory((prev) =>
+                                    prev.map((a) =>
+                                      a.id === alert.id ? { ...a, status: "acknowledged" } : a
+                                    )
+                                  );
+                                } catch (e) {
+                                  console.error("Failed to acknowledge:", e);
+                                }
+                              }}
+                              className="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+                            >
+                              Acknowledge
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                          <span>{new Date(alert.created_at).toLocaleString()}</span>
+                          <span className="capitalize">Source: {alert.threshold_source}</span>
+                          {alert.status === "acknowledged" && (
+                            <span className="text-green-600 font-medium">Acknowledged</span>
                           )}
                         </div>
                       </div>
