@@ -1,14 +1,36 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
-import { getPatientToHCP, acceptConnectionRequest, rejectConnectionRequest } from "@/services/api_calls";
+import {
+  getPatientToHCP,
+  acceptConnectionRequest,
+  rejectConnectionRequest,
+  getPatientDashboardForProvider,
+} from "@/services/api_calls";
+
+const CARD_COLORS = {
+  heart_rate: "from-rose-50 to-orange-50 border-rose-200",
+  blood_pressure_systolic: "from-indigo-50 to-blue-50 border-indigo-200",
+  blood_pressure_diastolic: "from-indigo-50 to-blue-50 border-indigo-200",
+  glucose: "from-amber-50 to-amber-100 border-amber-200",
+  steps: "from-emerald-50 to-teal-50 border-emerald-200",
+  sleep: "from-slate-50 to-slate-100 border-slate-200",
+  default: "from-gray-50 to-gray-100 border-gray-200",
+};
 
 export default function PatientConnections() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
+
+  // dashboard biomarkers
+  const [biomarkers, setBiomarkers] = useState(null);
+  const [biomarkersLoading, setBiomarkersLoading] = useState(false);
+  const [biomarkersError, setBiomarkersError] = useState("");
+
   const [allRequests, setAllRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +49,40 @@ export default function PatientConnections() {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  const loadBiomarkersForPatient = async (patient) => {
+    // only load biomarkers if accepted and has id
+    if (!patient?.patient_user_id || patient.status !== "accepted") {
+      setBiomarkers(null);
+      setBiomarkersError("");
+      setBiomarkersLoading(false);
+      return;
+    }
+
+    try {
+      setBiomarkersLoading(true);
+      setBiomarkersError("");
+      const data = await getPatientDashboardForProvider(patient.patient_user_id);
+
+      // ✅ This is what your instructor sentence means: show REAL data (not static)
+      console.log("Provider dashboard (biomarkers) for patient:", patient.patient_user_id, data);
+
+      setBiomarkers(data);
+    } catch (err) {
+      setBiomarkersError(err?.message || "Failed to load biomarkers");
+      setBiomarkers(null);
+    } finally {
+      setBiomarkersLoading(false);
+    }
+  };
+
+  const handleViewDetails = async (patient) => {
+    setSelectedPatient(patient);
+    setBiomarkers(null);
+    setBiomarkersError("");
+    setBiomarkersLoading(false);
+    await loadBiomarkersForPatient(patient);
+  };
 
   const handleAccept = async (connectionId, patientName) => {
     try {
@@ -52,7 +108,8 @@ export default function PatientConnections() {
 
   const filteredPatients = allRequests.filter((p) => {
     if (activeTab !== "all" && p.status !== activeTab) return false;
-    if (searchTerm && !p.patient_name?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && !p.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()))
+      return false;
     return true;
   });
 
@@ -63,7 +120,9 @@ export default function PatientConnections() {
       rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
     };
     const config = statusMap[status] || statusMap.pending;
-    return <span className={`px-3 py-1 rounded-full text-sm ${config.color}`}>{config.label}</span>;
+    return (
+      <span className={`px-3 py-1 rounded-full text-sm ${config.color}`}>{config.label}</span>
+    );
   };
 
   const formatDate = (dateString) => {
@@ -125,25 +184,92 @@ export default function PatientConnections() {
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">ACTIONS</th>
               </tr>
             </thead>
+
             <tbody className="divide-y">
               {filteredPatients.length > 0 ? (
                 filteredPatients.map((patient) => (
                   <tr key={patient.id} className="hover:bg-gray-50">
+                    {/* ✅ Only NAME is linkable */}
                     <td className="px-6 py-4">
-                      <div className="font-medium">{patient.patient_name}</div>
+                      <Link
+                        href={
+                          patient.patient_user_id
+                            ? `/dashboard/provider/patient-connection/${patient.patient_user_id}`
+                            : "#"
+                        }
+                        className={`font-medium ${
+                          patient.patient_user_id
+                            ? "text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                            : "text-gray-400 cursor-not-allowed"
+                        }`}
+                        onClick={(e) => {
+                          if (!patient.patient_user_id) e.preventDefault();
+                        }}
+                      >
+                        {patient.patient_name}
+                      </Link>
+
                       <div className="text-sm text-gray-500">{patient.patient_email}</div>
                     </td>
+
                     <td className="px-6 py-4">
                       <StatusBadge status={patient.status} />
                     </td>
+
                     <td className="px-6 py-4">{formatDate(patient.requested_at)}</td>
-                    <td className="px-6 py-4 flex gap-3">
+
+                    <td className="px-6 py-4 flex flex-col items-start gap-2">
+                      {/* ✅ View Details opens modal */}
                       <button
-                        onClick={() => setSelectedPatient(patient)}
+                        onClick={() => handleViewDetails(patient)}
                         className="text-blue-600 hover:text-blue-800 font-medium"
                       >
                         View Details
                       </button>
+
+                      <Link
+                        href={
+                          patient.patient_user_id
+                            ? `/dashboard/provider/patient-connection/biomarkers/${patient.patient_user_id}`
+                            : "#"
+                        }
+                        className={`font-medium ${
+                          patient.status === "accepted" && patient.patient_user_id
+                            ? "text-indigo-600 hover:text-indigo-800"
+                            : "text-gray-400 cursor-not-allowed"
+                        }`}
+                        aria-disabled={patient.status !== "accepted" || !patient.patient_user_id}
+                        onClick={(e) => {
+                          if (patient.status !== "accepted" || !patient.patient_user_id) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        View History
+                      </Link>
+
+                      <Link
+                        href={
+                          patient.patient_user_id
+                            ? `/dashboard/provider/patient-recommendation?patient_user_id=${patient.patient_user_id}`
+                            : "#"
+                        }
+                        className={`font-medium ${
+                          patient.status === "accepted" && patient.patient_user_id
+                            ? "text-emerald-600 hover:text-emerald-800"
+                            : "text-gray-400 cursor-not-allowed"
+                        }`}
+                        aria-disabled={patient.status !== "accepted" || !patient.patient_user_id}
+                        onClick={(e) => {
+                          if (patient.status !== "accepted" || !patient.patient_user_id) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        View Recommendations
+                      </Link>
+
+
                       {patient.status === "pending" && (
                         <>
                           <button
@@ -175,17 +301,21 @@ export default function PatientConnections() {
         </div>
       </div>
 
+      {/* ✅ Modal: shows ACTUAL patient details from request + ACTUAL biomarkers from API */}
       {selectedPatient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="bg-blue-600 text-white p-6">
               <div className="flex justify-between items-start">
                 <h2 className="text-2xl font-bold">Patient Details</h2>
-                <button onClick={() => setSelectedPatient(null)} className="text-2xl">×</button>
+                <button onClick={() => setSelectedPatient(null)} className="text-2xl">
+                  ×
+                </button>
               </div>
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Personal Info */}
               <div className="bg-gray-50 rounded-lg p-6 border">
                 <h3 className="font-semibold mb-4 pb-2 border-b">Personal Information</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -199,7 +329,11 @@ export default function PatientConnections() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Age</p>
-                    <p className="font-medium">{selectedPatient.patient_age || "N/A"}</p>
+                    <p className="font-medium">
+                      {typeof selectedPatient.patient_age === "number" && selectedPatient.patient_age >= 0
+                        ? selectedPatient.patient_age
+                        : "N/A"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Requested</p>
@@ -208,6 +342,7 @@ export default function PatientConnections() {
                 </div>
               </div>
 
+              {/* Health Goals */}
               <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
                 <h3 className="font-semibold mb-4 pb-2 border-b">🎯 Health Goals</h3>
                 {selectedPatient.patient_health_goals?.length > 0 ? (
@@ -215,10 +350,8 @@ export default function PatientConnections() {
                     {selectedPatient.patient_health_goals.map((goal, i) => (
                       <li key={i} className="flex items-center gap-2">
                         <span>•</span>
-                        <span className="flex-1">
-                          {typeof goal === 'string' ? goal : goal.goal}
-                        </span>
-                        {typeof goal === 'object' && goal.frequency && (
+                        <span className="flex-1">{typeof goal === "string" ? goal : goal.goal}</span>
+                        {typeof goal === "object" && goal.frequency && (
                           <span className="text-xs text-blue-600 uppercase bg-blue-100 px-2 py-1 rounded">
                             {goal.frequency}
                           </span>
@@ -231,6 +364,7 @@ export default function PatientConnections() {
                 )}
               </div>
 
+              {/* Health Restrictions */}
               <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
                 <h3 className="font-semibold mb-4 pb-2 border-b">⚠️ Health Restrictions</h3>
                 {selectedPatient.patient_health_restrictions?.length > 0 ? (
@@ -239,7 +373,7 @@ export default function PatientConnections() {
                       <li key={i} className="flex items-center gap-2">
                         <span>•</span>
                         <span className="text-orange-700">
-                          {typeof restriction === 'string' ? restriction : restriction}
+                          {typeof restriction === "string" ? restriction : restriction}
                         </span>
                       </li>
                     ))}
@@ -249,6 +383,7 @@ export default function PatientConnections() {
                 )}
               </div>
 
+              {/* Connection Details */}
               <div className="bg-gray-50 rounded-lg p-6 border">
                 <h3 className="font-semibold mb-4 pb-2 border-b">Connection Details</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -258,9 +393,59 @@ export default function PatientConnections() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Accepted At</p>
-                    <p className="font-medium">{formatDate(selectedPatient.accepted_at) || "Not yet accepted"}</p>
+                    <p className="font-medium">{formatDate(selectedPatient.accepted_at)}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Biomarkers */}
+              <div className="bg-white rounded-lg p-6 border">
+                <h3 className="font-semibold mb-4 pb-2 border-b">Current Biomarkers</h3>
+                {selectedPatient.status !== "accepted" ? (
+                  <p className="text-sm text-gray-600">
+                    Biomarkers available after the connection is accepted.
+                  </p>
+                ) : biomarkersLoading ? (
+                  <p className="text-sm text-gray-600">Loading biomarkers...</p>
+                ) : biomarkersError ? (
+                  <p className="text-sm text-red-700">{biomarkersError}</p>
+                ) : !biomarkers ? (
+                  <p className="text-sm text-gray-600">No biomarker data available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Object.entries(biomarkers).map(([key, value]) => {
+                      if (!value) return null;
+
+                      // Expecting { value: number|string, unit: string }
+                      const metaLabel = key
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+                      const colors = CARD_COLORS[key] || CARD_COLORS.default;
+
+                      // If API returns something else, skip safely
+                      const displayValue =
+                        typeof value === "object" && value !== null && "value" in value
+                          ? value.value
+                          : value;
+
+                      const displayUnit =
+                        typeof value === "object" && value !== null && "unit" in value ? value.unit : "";
+
+                      return (
+                        <div
+                          key={key}
+                          className={`rounded-lg border px-3 py-3 bg-gradient-to-br ${colors} shadow-sm`}
+                        >
+                          <p className="text-xs uppercase tracking-wide text-gray-600">{metaLabel}</p>
+                          <p className="text-xl font-semibold text-gray-900">
+                            {displayValue} {displayUnit}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
