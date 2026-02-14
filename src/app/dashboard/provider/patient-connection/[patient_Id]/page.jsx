@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
-import { getPatientDashboardForProvider, getPatientToHCP, getPatientNotes, createPatientNote, updatePatientNote, deletePatientNote } from "@/services/api_calls";
+import { getPatientDashboardForProvider, getPatientToHCP, getPatientNotes, createPatientNote, updatePatientNote, deletePatientNote, getPatientRecommendations } from "@/services/api_calls";
 
 function formatDate(dateString) {
   if (!dateString) return "N/A";
@@ -80,11 +80,10 @@ export default function PatientDetailsPage() {
   // Editing state
   const [editingNoteId, setEditingNoteId] = useState(null);
 
-  // AI suggestion (placeholder requirement)
-  const aiSuggestion =
-    "Based on recent biomarker trends, the patient's blood pressure has slightly increased. Consider discussing stress management techniques and reviewing sodium intake. Sleep patterns remain stable, which is positive for overall cardiovascular health.";
+  // AI Recommendations for this patient
+  const [patientRecs, setPatientRecs] = useState([]);
+  const [recsLoading, setRecsLoading] = useState(true);
 
-  const [showAiSuggestion, setShowAiSuggestion] = useState(true);
   const editorRef = useRef(null);
 useEffect(() => {
   let cancelled = false;
@@ -113,10 +112,20 @@ useEffect(() => {
       const notesData = await getPatientNotes(patientUserId);
       console.log("Patient notes:", notesData);
 
+      // 4) Load AI recommendations for this patient
+      let recsData = null;
+      try {
+        recsData = await getPatientRecommendations(patientUserId);
+      } catch (e) {
+        console.warn("Could not load patient recommendations:", e);
+      }
+
       if (!cancelled) {
         setDashboard(dash || null);
         setPatientRequest(match);
         setNotes(notesData.notes || notesData || []);
+        setPatientRecs(recsData?.recommendations || []);
+        setRecsLoading(false);
       }
     } catch (e) {
       if (!cancelled) setError(e?.message || "Failed to load patient dashboard.");
@@ -166,9 +175,9 @@ useEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = "";
   };
 
-  const handleUseAiSuggestion = () => {
+  const handleUseAiSuggestion = (text) => {
     if (editorRef.current) {
-      editorRef.current.innerHTML = `<p>${aiSuggestion}</p>`;
+      editorRef.current.innerHTML = `<p>${text}</p>`;
       editorRef.current.focus();
       setShowAiSuggestion(false);
     }
@@ -403,6 +412,138 @@ useEffect(() => {
               )}
             </div>
 
+            {/* AI Recommendations Progress */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">AI Recommendations Progress</h2>
+
+              {recsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="animate-pulse bg-gray-100 rounded-lg p-4">
+                      <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
+                      <div className="h-2 bg-gray-200 rounded-full w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : patientRecs.length === 0 ? (
+                <p className="text-gray-500 text-sm">No AI recommendations generated for this patient yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {patientRecs.map((rec) => {
+                    const progress = rec.progress_percentage || 0;
+                    const steps = rec.action_steps || [];
+                    const completedSteps = steps.filter((s) => s.completed).length;
+                    const isCompleted = rec.status === "completed";
+                    const isInProgress = rec.status === "in_progress";
+                    const catColor = rec.category_display?.color || "#6b7280";
+
+                    return (
+                      <div
+                        key={rec.id}
+                        className={`rounded-lg border p-4 ${
+                          isCompleted ? "bg-green-50 border-green-200" :
+                          isInProgress ? "bg-blue-50 border-blue-200" :
+                          "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        {/* Header */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: catColor }}
+                          />
+                          <h4 className={`text-sm font-semibold text-gray-900 flex-1 ${isCompleted ? "line-through opacity-60" : ""}`}>
+                            {rec.title}
+                          </h4>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            isCompleted ? "bg-green-100 text-green-700" :
+                            isInProgress ? "bg-blue-100 text-blue-700" :
+                            rec.status === "dismissed" ? "bg-gray-100 text-gray-500" :
+                            "bg-yellow-100 text-yellow-700"
+                          }`}>
+                            {isCompleted ? "Completed" :
+                             isInProgress ? "In Progress" :
+                             rec.status === "dismissed" ? "Dismissed" : "Active"}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mb-2">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-500">
+                              {steps.length > 0
+                                ? `${completedSteps}/${steps.length} steps`
+                                : "Progress"}
+                            </span>
+                            <span className={`font-bold ${progress >= 100 ? "text-green-600" : "text-blue-600"}`}>
+                              {progress}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                progress >= 80 ? "bg-green-500" :
+                                progress >= 50 ? "bg-blue-500" :
+                                progress >= 25 ? "bg-yellow-500" :
+                                "bg-gray-400"
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Action Steps (collapsed view) */}
+                        {steps.length > 0 && (
+                          <div className="space-y-1">
+                            {steps.map((step) => (
+                              <div key={step.step_number} className="flex items-center gap-2 text-xs">
+                                <span className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
+                                  step.completed
+                                    ? "bg-green-500 border-green-500 text-white"
+                                    : "border-gray-300 bg-white"
+                                }`}>
+                                  {step.completed && (
+                                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </span>
+                                <span className={step.completed ? "text-gray-400 line-through" : "text-gray-700"}>
+                                  {step.instruction}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Meta Info */}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {rec.category_display?.label && (
+                            <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: rec.category_display.bg_color, color: catColor }}>
+                              {rec.category_display.label}
+                            </span>
+                          )}
+                          {rec.priority && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              rec.priority === "urgent" ? "bg-red-100 text-red-700" :
+                              rec.priority === "high" ? "bg-orange-100 text-orange-700" :
+                              rec.priority === "medium" ? "bg-yellow-100 text-yellow-700" :
+                              "bg-green-100 text-green-700"
+                            }`}>
+                              {rec.priority}
+                            </span>
+                          )}
+                          {rec.difficulty && (
+                            <span className="text-xs text-gray-500 capitalize">{rec.difficulty}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Historical Trends (Sprint requires UI even if endpoint missing) */}
             <div className="bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 rounded-xl shadow-sm border border-indigo-100 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">Historical Trends (Last 5 Days)</h2>
@@ -472,19 +613,51 @@ useEffect(() => {
                 {editingNoteId ? 'Edit Note' : 'Add Note / Recommendation'}
               </h2>
 
-              {/* AI Suggestion */}
-              {showAiSuggestion && !editingNoteId && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 border border-indigo-100 rounded-lg">
-                  <p className="text-sm font-semibold text-indigo-900 mb-1">AI Suggestion</p>
-                  <p className="text-sm text-indigo-800">{aiSuggestion}</p>
-                  <button
-                    onClick={handleUseAiSuggestion}
-                    className="mt-3 text-sm text-indigo-700 hover:text-indigo-900 font-semibold"
-                  >
-                    Use this suggestion
-                  </button>
-                </div>
-              )}
+              {/* AI Quick Context for Note Writing */}
+              {!editingNoteId && patientRecs.length > 0 && (() => {
+                const activeRecs = patientRecs.filter(r => r.status === "active" || r.status === "in_progress");
+                const urgentRecs = patientRecs.filter(r => r.priority === "urgent" || r.priority === "high");
+                const avgProgress = activeRecs.length > 0
+                  ? Math.round(activeRecs.reduce((sum, r) => sum + (r.progress_percentage || 0), 0) / activeRecs.length)
+                  : 0;
+                const topCategories = [...new Set(patientRecs.map(r => r.category_display?.label || r.category))].slice(0, 3);
+
+                return (
+                  <div className="mb-4 p-4 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg">
+                    <p className="text-xs font-semibold text-indigo-900 uppercase tracking-wide mb-2">Patient AI Overview</p>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-white/70 rounded p-2 text-center">
+                        <p className="text-lg font-bold text-indigo-700">{activeRecs.length}</p>
+                        <p className="text-xs text-gray-500">Active</p>
+                      </div>
+                      <div className="bg-white/70 rounded p-2 text-center">
+                        <p className="text-lg font-bold text-indigo-700">{avgProgress}%</p>
+                        <p className="text-xs text-gray-500">Avg Progress</p>
+                      </div>
+                    </div>
+                    {urgentRecs.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded p-2 mb-2">
+                        <p className="text-xs font-semibold text-red-700 mb-1">{urgentRecs.length} urgent/high priority:</p>
+                        {urgentRecs.slice(0, 2).map(r => (
+                          <p key={r.id} className="text-xs text-red-600 truncate">• {r.title}</p>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">Focus areas: {topCategories.join(", ")}</p>
+                    <button
+                      onClick={() => {
+                        const summary = urgentRecs.length > 0
+                          ? `Key areas to discuss: ${urgentRecs.map(r => r.title).join("; ")}. Patient progress: ${avgProgress}% average across ${activeRecs.length} active recommendations.`
+                          : `Patient has ${activeRecs.length} active AI recommendations (${topCategories.join(", ")}). Average progress: ${avgProgress}%.`;
+                        handleUseAiSuggestion(summary);
+                      }}
+                      className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Insert summary into note
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Rich Text Toolbar */}
               <div className="mb-2 flex gap-1 pb-2 border-b border-indigo-100">

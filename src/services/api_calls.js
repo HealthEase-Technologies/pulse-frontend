@@ -1505,6 +1505,225 @@ export const deleteProvider = async (providerId) => {
 };
 
 // ============================================================================
+// AI RECOMMENDATIONS
+// ============================================================================
+
+/**
+ * Get active AI recommendations for the current patient
+ * @param {string} [category] - Optional category filter
+ * @returns {Promise<Object>} Recommendations list with stats
+ */
+export const getMyRecommendations = async (category = null) => {
+  try {
+    let url = `${BASE_URL}/api/v1/recommendations`;
+    if (category) url += `?category=${category}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Get recommendations error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Generate new AI-powered health recommendations
+ * @param {Object} [options] - Optional generation options
+ * @param {string[]} [options.categories] - Categories to generate for
+ * @param {boolean} [options.force_regenerate] - Force regeneration
+ * @param {number} [options.max_recommendations] - Max recommendations (1-10)
+ * @returns {Promise<Object>} Generated recommendations
+ */
+export const generateRecommendations = async (options = {}) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/generate`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(options),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Generate recommendations error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Start working on a recommendation
+ * @param {string} recommendationId - Recommendation ID
+ * @returns {Promise<Object>} Updated recommendation
+ */
+export const startRecommendation = async (recommendationId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/start`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Start recommendation error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Update progress for a recommendation
+ * @param {string} recommendationId - Recommendation ID
+ * @param {number} progressPercentage - Progress (0-100)
+ * @returns {Promise<Object>} Updated recommendation
+ */
+export const updateRecommendationProgress = async (recommendationId, progressPercentage) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/progress`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ progress_percentage: progressPercentage }),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Update recommendation progress error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Toggle an action step's completed status
+ * @param {string} recommendationId - Recommendation ID
+ * @param {number} stepNumber - Step number to toggle
+ * @returns {Promise<Object>} Updated recommendation
+ */
+export const toggleActionStep = async (recommendationId, stepNumber) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/action-steps/${stepNumber}/toggle`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Toggle action step error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Mark a recommendation as completed
+ * @param {string} recommendationId - Recommendation ID
+ * @returns {Promise<Object>} Updated recommendation
+ */
+export const completeRecommendation = async (recommendationId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/complete`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Complete recommendation error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Dismiss a recommendation
+ * @param {string} recommendationId - Recommendation ID
+ * @returns {Promise<Object>} Updated recommendation
+ */
+export const dismissRecommendation = async (recommendationId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/dismiss`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Dismiss recommendation error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Submit feedback for a recommendation
+ * @param {string} recommendationId - Recommendation ID
+ * @param {Object} feedbackData - Feedback data
+ * @param {string} feedbackData.feedback - Feedback type
+ * @param {string} [feedbackData.notes] - Optional notes
+ * @param {string} [feedbackData.difficulty_experienced] - Optional difficulty
+ * @returns {Promise<Object>} Updated recommendation
+ */
+export const submitRecommendationFeedback = async (recommendationId, feedbackData) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/recommendations/${recommendationId}/feedback`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(feedbackData),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Submit recommendation feedback error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Provider: Get a patient's AI recommendations
+ * @param {string} patientUserId - Patient's user ID
+ * @param {string} [statusFilter] - Optional status filter
+ * @returns {Promise<Object>} Patient's recommendations with stats
+ */
+export const getPatientRecommendations = async (patientUserId, statusFilter = null) => {
+  try {
+    let url = `${BASE_URL}/api/v1/recommendations/patient/${patientUserId}`;
+    if (statusFilter) url += `?status_filter=${statusFilter}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401 || response.status === 403) {
+      handleUnauthorized();
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Get patient recommendations error:", error);
+    throw error;
+  }
+};
+
+// ============================================================================
 // BACKWARD COMPATIBILITY ALIASES
 // ============================================================================
 // These aliases ensure existing code continues to work with the new API
