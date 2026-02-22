@@ -1847,3 +1847,67 @@ export const providerAcknowledgeAlert = async (alertId) => {
   }
   return await response.json();
 };
+
+// ============================================================================
+// AI CHATBOT ENDPOINTS (Sprint 9)
+// ============================================================================
+
+/**
+ * Send a message to AI chatbot
+ * @param {string} message - The user's message
+ * @returns {Promise<string>} - The AI response
+ */
+export const sendChatMessage = async (message) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/chat/message`,
+    {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to send chat message");
+  }
+
+  const data = await response.json();
+  return data.response;
+};
+
+/**
+ * Get chat history for the authenticated user
+ * @param {number} limit - Maximum number of messages to retrieve
+ * @returns {Promise<Object>} Chat history response
+ */
+export const getChatHistory = async (limit = 50) => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/chat/history?limit=${limit}`,
+    { method: "GET" }
+  );
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to get chat history");
+  }
+
+  return await response.json();
+};
+
+/**
+ * Clear all chat history for the authenticated user
+ * @returns {Promise<Object>} Success response
+ */
+export const clearChatHistory = async () => {
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/chat/history`,
+    { method: "DELETE" }
+  );
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to clear chat history");
+  }
+
+  return await response.json();
+};
