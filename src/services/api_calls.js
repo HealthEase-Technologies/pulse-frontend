@@ -1911,3 +1911,54 @@ export const clearChatHistory = async () => {
 
   return await response.json();
 };
+
+
+// ─── Pet & Health Score API ───────────────────────────────────────────────────
+
+export const getPetCatalog = async () => {
+  const response = await fetch(`${BASE_URL}/api/v1/pets/catalog`);
+  if (!response.ok) throw new Error("Failed to fetch pet catalog");
+  return await response.json();
+};
+
+export const getMyPet = async () => {
+  const response = await authenticatedFetch(`${BASE_URL}/api/v1/pets/me`, { method: "GET" });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch pet");
+  }
+  return await response.json();
+};
+
+export const getHealthScore = async () => {
+  const response = await authenticatedFetch(`${BASE_URL}/api/v1/pets/health-score`, { method: "GET" });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch health score");
+  }
+  return await response.json();
+};
+
+export const selectPet = async (petKey) => {
+  const response = await authenticatedFetch(`${BASE_URL}/api/v1/pets/select`, {
+    method: "POST",
+    body: JSON.stringify({ pet_key: petKey }),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to select pet");
+  }
+  return await response.json();
+};
+
+export const customizePet = async (data) => {
+  const response = await authenticatedFetch(`${BASE_URL}/api/v1/pets/customize`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to customize pet");
+  }
+  return await response.json();
+};
