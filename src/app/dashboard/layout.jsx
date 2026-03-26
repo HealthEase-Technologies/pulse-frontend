@@ -4,6 +4,7 @@ import { useAuth } from "@/context/auth-context";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import PetWidget from "@/components/PetWidget";
 import { getCurrentUser } from "@/services/api_calls";
 
 export default function DashboardLayout({ children }) {
@@ -41,6 +42,9 @@ export default function DashboardLayout({ children }) {
           {children}
         </main>
       </div>
+
+      {/* Pet Widget — patients only */}
+      {userRole === "patient" && <PetWidget />}
     </div>
   );
 }
