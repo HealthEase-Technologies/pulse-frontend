@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
-import { getPatientDashboardForProvider, getPatientToHCP, getPatientNotes, createPatientNote, updatePatientNote, deletePatientNote, getPatientRecommendations, getPatientThresholds, getPatientEffectiveThresholds, setPatientThreshold, deleteProviderThreshold, getPatientAlertHistory, providerAcknowledgeAlert } from "@/services/api_calls";
+import { getPatientDashboardForProvider, getPatientToHCP, getPatientNotes, createPatientNote, updatePatientNote, deletePatientNote, getPatientRecommendations, getPatientThresholds, getPatientEffectiveThresholds, setPatientThreshold, deleteProviderThreshold, getPatientAlertHistory, providerAcknowledgeAlert, getPatientHistoryForProvider } from "@/services/api_calls";
 
 function formatDate(dateString) {
   if (!dateString) return "N/A";
@@ -91,6 +91,9 @@ export default function PatientDetailsPage() {
   const [thresholdEdit, setThresholdEdit] = useState(null); // {biomarker_type, ...}
   const [thresholdSaving, setThresholdSaving] = useState(false);
 
+  // Historical Trends
+  const [trendsData, setTrendsData] = useState({});
+
   const editorRef = useRef(null);
 useEffect(() => {
   let cancelled = false;
@@ -141,6 +144,36 @@ useEffect(() => {
         console.warn("Could not load thresholds/alerts:", e);
       }
 
+      // 6) Load historical trends (last 5 days) for key biomarkers
+      const TREND_BIOMARKERS = ["heart_rate", "blood_pressure_systolic", "blood_pressure_diastolic", "glucose", "steps", "sleep"];
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+      let trends = {};
+      try {
+        const results = await Promise.allSettled(
+          TREND_BIOMARKERS.map((bt) => getPatientHistoryForProvider(patientUserId, bt, { limit: 50 }))
+        );
+        TREND_BIOMARKERS.forEach((bt, i) => {
+          if (results[i].status === "fulfilled") {
+            const readings = (results[i].value || []).filter(
+              (r) => new Date(r.recorded_at) >= fiveDaysAgo
+            );
+            // Group by date, take average per day
+            const byDay = {};
+            readings.forEach((r) => {
+              const day = new Date(r.recorded_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              if (!byDay[day]) byDay[day] = [];
+              byDay[day].push(r.value);
+            });
+            trends[bt] = Object.entries(byDay)
+              .map(([day, vals]) => ({ day, avg: bt === "steps" ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)) }))
+              .slice(-5);
+          }
+        });
+      } catch (e) {
+        console.warn("Could not load trends:", e);
+      }
+
       if (!cancelled) {
         setDashboard(dash || null);
         setPatientRequest(match);
@@ -150,6 +183,7 @@ useEffect(() => {
         setThresholds(thresholdsData || []);
         setEffectiveThresholds(effectiveData || []);
         setAlertHistory(alertsData?.alerts || []);
+        setTrendsData(trends);
       }
     } catch (e) {
       if (!cancelled) setError(e?.message || "Failed to load patient dashboard.");
@@ -261,7 +295,6 @@ useEffect(() => {
 
     clearEditor();
     setEditingNoteId(null);
-    setShowAiSuggestion(true);
   } catch (error) {
     console.error("Failed to save note:", error);
     alert("Failed to save note. Please try again.");
@@ -773,12 +806,45 @@ useEffect(() => {
               )}
             </div>
 
-            {/* Historical Trends (Sprint requires UI even if endpoint missing) */}
+            {/* Historical Trends */}
             <div className="bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 rounded-xl shadow-sm border border-indigo-100 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Historical Trends (Last 5 Days)</h2>
-              <p className="text-sm text-gray-700">
-                Trend data will appear here once a trends endpoint is connected.
-              </p>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Historical Trends (Last 5 Days)</h2>
+              {Object.keys(trendsData).length === 0 ? (
+                <p className="text-sm text-gray-500">No trend data available for the last 5 days.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(trendsData).map(([bt, days]) => {
+                    if (!days || days.length === 0) return null;
+                    const label = bt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                    const unit = { heart_rate: "bpm", blood_pressure_systolic: "mmHg", blood_pressure_diastolic: "mmHg", glucose: "mg/dL", steps: "steps", sleep: "hrs" }[bt] || "";
+                    const vals = days.map((d) => d.avg);
+                    const min = Math.min(...vals);
+                    const max = Math.max(...vals);
+                    const range = max - min || 1;
+                    return (
+                      <div key={bt} className="bg-white rounded-lg border border-indigo-100 p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-3">{label} <span className="text-xs text-gray-400 font-normal">({unit})</span></p>
+                        <div className="flex items-end gap-2 h-14">
+                          {days.map(({ day, avg }) => {
+                            const heightPct = Math.max(15, ((avg - min) / range) * 100);
+                            return (
+                              <div key={day} className="flex flex-col items-center flex-1 gap-1">
+                                <span className="text-xs text-gray-500">{avg}</span>
+                                <div
+                                  className="w-full rounded-t bg-indigo-400"
+                                  style={{ height: `${heightPct}%`, minHeight: "8px" }}
+                                  title={`${day}: ${avg} ${unit}`}
+                                />
+                                <span className="text-xs text-gray-400 truncate w-full text-center">{day}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Previous Notes (Sprint requires display with timestamp + HCP name) */}
