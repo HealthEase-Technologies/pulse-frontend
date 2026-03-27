@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRive, Layout, Fit, Alignment } from "@rive-app/react-canvas";
-import { getMyPet, getHealthScore, getPetCatalog, selectPet, customizePet } from "@/services/api_calls";
+import { getMyPet, getHealthScore, getPetCatalog, selectPet, customizePet, getPetTimeline } from "@/services/api_calls";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 import ShareHealthCard from "@/components/ShareHealthCard";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine, ReferenceArea,
+} from "recharts";
 
 const BACKGROUNDS = [
   { key: "park",   label: "Park",   emoji: "🌳" },
@@ -30,7 +34,7 @@ const SCORE_META = (s) =>
 const EMOTION_BADGE = {
   happy:   "bg-green-100 text-green-700",
   neutral: "bg-yellow-100 text-yellow-700",
-  sad:     "bg-blue-100 text-blue-700",
+  sad:     "bg-red-100 text-red-700",
 };
 
 const BG_GRADIENT = {
@@ -70,8 +74,10 @@ export default function PetPage() {
   const [saving, setSaving]       = useState(false);
   const [petName, setPetName]     = useState("");
   const [nameError, setNameError] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
-  const [sharing, setSharing]     = useState(false);
+  const [activeTab, setActiveTab]   = useState("overview");
+  const [sharing, setSharing]       = useState(false);
+  const [timeline, setTimeline]     = useState(null);
+  const [tlLoading, setTlLoading]   = useState(false);
   const [petSnap, setPetSnap]     = useState(null);
   const petCanvasRef              = useRef(null);
 
@@ -93,6 +99,14 @@ export default function PetPage() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  const fetchTimeline = async () => {
+    if (timeline) return;
+    setTlLoading(true);
+    try { setTimeline(await getPetTimeline(30)); }
+    catch { setTimeline({ events: [], score_series: [] }); }
+    finally { setTlLoading(false); }
+  };
 
   const handleSelectPet = async (petKey) => {
     setSaving(true);
@@ -262,13 +276,14 @@ export default function PetPage() {
               <div className="flex border-b border-gray-200">
                 {[
                   { key: "overview",  label: "Overview"        },
+                  { key: "timeline",  label: "Timeline"        },
                   { key: "customize", label: "Customize"       },
                   { key: "switch",    label: "Switch Pet"      },
                   { key: "score",     label: "Score Breakdown" },
                 ].map((t) => (
                   <button
                     key={t.key}
-                    onClick={() => setActiveTab(t.key)}
+                    onClick={() => { setActiveTab(t.key); if (t.key === "timeline") fetchTimeline(); }}
                     className={`flex-1 py-3 text-xs font-semibold transition-colors border-b-2
                       ${activeTab === t.key
                         ? "text-blue-600 border-blue-600 bg-blue-50/50"
@@ -312,7 +327,7 @@ export default function PetPage() {
                         {[
                           { range: "70–100", emotion: "Happy",   color: "text-green-600",  dot: "bg-green-500"  },
                           { range: "40–69",  emotion: "Neutral", color: "text-yellow-600", dot: "bg-yellow-500" },
-                          { range: "0–39",   emotion: "Sad",     color: "text-blue-600",   dot: "bg-blue-500"   },
+                          { range: "0–39",   emotion: "Sad",     color: "text-red-600",    dot: "bg-red-500"    },
                         ].map((e) => (
                           <div key={e.emotion} className="flex items-center gap-2">
                             <div className={`w-2.5 h-2.5 rounded-full ${e.dot}`} />
@@ -417,6 +432,170 @@ export default function PetPage() {
                         )}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Timeline */}
+                {activeTab === "timeline" && (
+                  <div className="flex flex-col gap-4">
+                    {tlLoading ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                      </div>
+                    ) : !timeline || (!timeline.score_series?.length && !timeline.events?.length) ? (
+                      <p className="text-sm text-gray-400 text-center py-8">
+                        No history yet — log biomarkers daily to build your timeline!
+                      </p>
+                    ) : (
+                      <>
+                        {/* Score chart */}
+                        {timeline.score_series?.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                              Health Score Journey (Last 30 Days)
+                            </p>
+                            <div className="bg-gray-50 rounded-xl border border-gray-100 p-3">
+                              <ResponsiveContainer width="100%" height={180}>
+                                <AreaChart data={timeline.score_series} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                                  <defs>
+                                    <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%"  stopColor="#2563eb" stopOpacity={0.15} />
+                                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02} />
+                                    </linearGradient>
+                                  </defs>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }}
+                                    tickFormatter={(d) => { const dt = new Date(d); return `${dt.getMonth()+1}/${dt.getDate()}`; }} />
+                                  <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} />
+                                  <Tooltip
+                                    contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                                    formatter={(v) => [`${v}/100`, "Score"]}
+                                    labelFormatter={(l) => new Date(l).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  />
+                                  {/* Emotion zones */}
+                                  <ReferenceArea y1={70} y2={100} fill="#dcfce7" fillOpacity={0.4} />
+                                  <ReferenceArea y1={40} y2={70}  fill="#fef3c7" fillOpacity={0.4} />
+                                  <ReferenceArea y1={0}  y2={40}  fill="#fee2e2" fillOpacity={0.4} />
+                                  <ReferenceLine y={70} stroke="#16a34a" strokeDasharray="4 2" strokeWidth={1} label={{ value: "Happy", position: "right", fontSize: 8, fill: "#16a34a" }} />
+                                  <ReferenceLine y={40} stroke="#b45309" strokeDasharray="4 2" strokeWidth={1} label={{ value: "Neutral", position: "right", fontSize: 8, fill: "#b45309" }} />
+                                  <Area dataKey="score" stroke="#2563eb" strokeWidth={2}
+                                    fill="url(#scoreGrad)" dot={{ r: 3, fill: "#2563eb", strokeWidth: 0 }}
+                                    activeDot={{ r: 5 }} />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                              {/* Legend */}
+                              <div className="flex gap-4 justify-center mt-1">
+                                {[
+                                  { color: "bg-green-200", label: "Happy (70–100)" },
+                                  { color: "bg-yellow-200", label: "Neutral (40–69)" },
+                                  { color: "bg-red-200",   label: "Sad (0–39)" },
+                                ].map(({ color, label }) => (
+                                  <div key={label} className="flex items-center gap-1">
+                                    <div className={`w-2.5 h-2.5 rounded-sm ${color}`} />
+                                    <span className="text-[10px] text-gray-500">{label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* State change events */}
+                        {(() => {
+                          const changes = (timeline.events || []).filter(
+                            (e) => e.previous_emotion !== e.new_emotion
+                          ).reverse();
+                          if (!changes.length) return (
+                            <p className="text-xs text-gray-400 text-center py-4">
+                              No mood changes yet in this period.
+                            </p>
+                          );
+                          const EMO_COLORS = {
+                            happy:   { bg: "bg-green-50 border-green-200",  bar: "bg-green-500",  txt: "text-green-700",  dot: "bg-green-500"  },
+                            neutral: { bg: "bg-yellow-50 border-yellow-200", bar: "bg-yellow-500", txt: "text-yellow-700", dot: "bg-yellow-500" },
+                            sad:     { bg: "bg-red-50 border-red-200",      bar: "bg-red-500",    txt: "text-red-700",    dot: "bg-red-500"    },
+                          };
+                          return (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                Mood Changes — {changes.length} event{changes.length !== 1 ? "s" : ""}
+                              </p>
+                              <div className="flex flex-col gap-2">
+                                {changes.map((e, idx) => {
+                                  const nc  = EMO_COLORS[e.new_emotion]  || EMO_COLORS.neutral;
+                                  const pc  = EMO_COLORS[e.previous_emotion] || EMO_COLORS.neutral;
+                                  const ts  = new Date(e.created_at);
+                                  const dateLabel = ts.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                                  const breakdown = e.input_snapshot?.breakdown || [];
+                                  const topReasons = breakdown
+                                    .sort((a, b) => b.score - a.score)
+                                    .slice(0, 2);
+                                  const catEntry = catalog.find((c) => c.id === pet?.pet_catalog_id);
+                                  const petAssetUrl = catEntry?.selection_asset_url || pet?.riv_url;
+                                  const EMO_EMOJI = { happy: "😊", neutral: "😐", sad: "😢" };
+                                  return (
+                                    <div key={idx} className={`rounded-xl border p-3 ${nc.bg}`}>
+                                      <div className="flex gap-3">
+                                        {/* Pet image */}
+                                        {petAssetUrl && (
+                                          <div className="relative flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-white/60 border border-white/80 shadow-sm">
+                                            <RivePet url={petAssetUrl} />
+                                            <span className="absolute bottom-0.5 right-0.5 text-[13px] leading-none">
+                                              {EMO_EMOJI[e.new_emotion] || "🐾"}
+                                            </span>
+                                          </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center justify-between mb-1.5">
+                                            <div className="flex items-center gap-2">
+                                              {/* Transition pills */}
+                                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-white border ${pc.txt} border-current capitalize`}>
+                                                {e.previous_emotion}
+                                              </span>
+                                              <span className="text-gray-400 text-xs">→</span>
+                                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${nc.bar} text-white capitalize`}>
+                                                {e.new_emotion}
+                                              </span>
+                                            </div>
+                                            <span className="text-xs text-gray-400">{dateLabel}</span>
+                                          </div>
+                                          {/* Score bar */}
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <span className={`text-sm font-black ${nc.txt}`}>
+                                              {Math.round(e.final_score)}/100
+                                            </span>
+                                            <div className="flex-1 bg-white/70 rounded-full h-1.5">
+                                              <div className={`h-1.5 rounded-full ${nc.bar}`}
+                                                   style={{ width: `${e.final_score}%` }} />
+                                            </div>
+                                          </div>
+                                          {/* Top biomarker reasons */}
+                                          {topReasons.length > 0 && (
+                                            <div className="flex flex-col gap-0.5">
+                                              {topReasons.map((b) => (
+                                                <div key={b.biomarker_type} className="flex items-center gap-1.5">
+                                                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                                    b.score >= 16 ? "bg-green-500" : b.score >= 10 ? "bg-yellow-500" : "bg-red-400"
+                                                  }`} />
+                                                  <span className="text-[11px] text-gray-600">
+                                                    <span className="font-medium capitalize">{b.biomarker_type.replace(/_/g, " ")}</span>
+                                                    {" "}— {b.reason} ({Math.round(b.score)}/20)
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
                   </div>
                 )}
 
