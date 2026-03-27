@@ -30,7 +30,11 @@
     font-family: var(--font-serif, Georgia, 'Times New Roman', serif);
     font-style: italic;
   }
+  .font-arabic {
+    font-family: var(--font-arabic, 'Cairo', sans-serif);
+  }
 }
+
 
 nextjs-portal {
   display: none;
@@ -39,3 +43,71 @@ nextjs-portal {
 html {
   scroll-behavior: smooth;
 }
+
+/* ── Testimonial marquee ── */
+@keyframes marquee-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes marquee-right {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+.animate-marquee-left  { animation: marquee-left  35s linear infinite; }
+.animate-marquee-right { animation: marquee-right 35s linear infinite; }
+
+/* ── AI chat message animation ── */
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.4; }
+  30%            { transform: translateY(-4px); opacity: 1;   }
+}
+
+/* ── Lenis smooth scroll ── */
+html.lenis { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+
+
+/* ── Site scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Chat scrollbar (hidden) ── */
+.chat-scroll::-webkit-scrollbar { display: none; }
+.chat-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Custom cursor ── */
+*, *::before, *::after { cursor: none !important; }
+.pulse-cursor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 99999;
+  top: 0; left: 0;
+  will-change: transform;
+}
+.pulse-cursor__dot {
+  width: 8px; height: 8px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s, height 0.15s, background 0.15s, opacity 0.15s;
+}
+.pulse-cursor__ring {
+  width: 32px; height: 32px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.25s cubic-bezier(0.25,0.46,0.45,0.94),
+              height 0.25s cubic-bezier(0.25,0.46,0.45,0.94),
+              border-color 0.2s, opacity 0.2s;
+}
+.pulse-cursor--hover .pulse-cursor__dot  { width: 6px; height: 6px; background: #a5b4fc; }
+.pulse-cursor--hover .pulse-cursor__ring { width: 46px; height: 46px; border-color: rgba(165,180,252,0.55); }
+.pulse-cursor--click .pulse-cursor__dot  { width: 4px; height: 4px; }
+.pulse-cursor--click .pulse-cursor__ring { width: 22px; height: 22px; border-color: rgba(255,255,255,0.7); }
