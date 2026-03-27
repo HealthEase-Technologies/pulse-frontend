@@ -4,230 +4,149 @@ import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 
+const inputCls = "w-full bg-white/[0.07] border border-white/[0.1] text-white placeholder:text-white/25 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-white/30 focus:bg-white/[0.1] transition-all duration-150";
+const labelCls = "block text-[11px] font-semibold text-white/40 uppercase tracking-widest mb-1.5";
+
+const Spinner = () => (
+  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
+const STEPS = {
+  1: { title: "Forgot your password?",    sub: "Enter your email and we'll send you a reset code."              },
+  2: { title: "Check your email.",         sub: "Enter the 6-digit code we sent along with your new password."   },
+  3: { title: "Password updated.",         sub: "You're all set — sign in with your new password."               },
+};
+
 export default function ResetPassword() {
   const { forgotPassword, confirmPassword } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [step, setStep] = useState(1);
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [step, setStep]             = useState(1);
+  const [email, setEmail]           = useState("");
+  const [code, setCode]             = useState("");
   const [newPassword, setNewPassword] = useState("");
 
   const handleRequestReset = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
+    setLoading(true); setError("");
     try {
       await forgotPassword(email);
-      setSuccess("Reset code sent to your email");
       setStep(2);
     } catch (err) {
       setError(err.message || "Failed to send reset code");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleConfirmReset = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
+    setLoading(true); setError("");
     try {
       await confirmPassword(email, code, newPassword);
-      setSuccess("Password reset successfully");
       setStep(3);
     } catch (err) {
       setError(err.message || "Failed to reset password");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-8">
-        {/* Back button */}
-        <div className="mb-6">
-          <Link
-            href="/login"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors"
-          >
-            <svg
-              className="w-4 h-4 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
+    <div className="w-full max-w-sm">
+      <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/[0.11] rounded-2xl p-6 shadow-2xl shadow-black/40">
+
+        {/* Back link */}
+        {step < 3 && (
+          <Link href="/login" className="inline-flex items-center gap-1.5 text-white/35 text-xs font-medium hover:text-white/60 transition-colors mb-5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+              <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Back to login
+            Back to sign in
           </Link>
-        </div>
+        )}
 
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {step === 1 && "Reset your password"}
-            {step === 2 && "Enter reset code"}
-            {step === 3 && "Password updated"}
-          </h1>
-          <p className="text-gray-600">
-            {step === 1 && "Enter your email to receive a password reset code"}
-            {step === 2 &&
-              "Check your email and enter the code with your new password"}
-            {step === 3 && "Your password has been reset successfully"}
-          </p>
+        <div className="mb-5">
+          <h1 className="font-serif text-2xl text-white leading-tight mb-1">{STEPS[step].title}</h1>
+          <p className="text-white/45 text-xs">{STEPS[step].sub}</p>
         </div>
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+            <p className="text-sm text-red-300">{error}</p>
           </div>
         )}
 
-        {/* Success message */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-600">{success}</p>
-          </div>
-        )}
-
-        {/* Step 1: Request Reset */}
+        {/* Step 1 — Email */}
         {step === 1 && (
-          <form onSubmit={handleRequestReset} className="space-y-6">
+          <form onSubmit={handleRequestReset} className="space-y-3">
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Email Address
-              </label>
+              <label htmlFor="email" className={labelCls}>Email Address</label>
               <input
-                id="email"
-                type="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="name@company.com"
-                value={email}
+                id="email" type="email" value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+                placeholder="you@example.com" required
+                className={inputCls}
               />
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Sending..." : "Send Reset Code"}
+            <button type="submit" disabled={loading}
+              className="w-full mt-1 bg-white text-gray-900 font-bold text-sm py-3 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-black/20">
+              {loading ? <span className="flex items-center justify-center gap-2"><Spinner />Sending…</span> : "Send Reset Code"}
             </button>
           </form>
         )}
 
-        {/* Step 2: Confirm Reset */}
+        {/* Step 2 — Code + new password */}
         {step === 2 && (
-          <form onSubmit={handleConfirmReset} className="space-y-6">
+          <form onSubmit={handleConfirmReset} className="space-y-3">
             <div>
-              <label
-                htmlFor="code"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Reset Code
-              </label>
+              <label htmlFor="code" className={labelCls}>Reset Code</label>
               <input
-                id="code"
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter the code from your email"
-                value={code}
+                id="code" type="text" value={code}
                 onChange={(e) => setCode(e.target.value)}
-                required
+                placeholder="6-digit code" required
+                className={inputCls}
               />
             </div>
-
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                New Password
-              </label>
+              <label htmlFor="newPassword" className={labelCls}>New Password</label>
               <input
-                id="password"
-                type="password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your new password"
-                value={newPassword}
+                id="newPassword" type="password" value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={8}
+                placeholder="••••••••" required minLength={8}
+                className={inputCls}
               />
+              <p className="mt-1.5 text-[11px] text-white/25">8+ chars · uppercase · lowercase · number · special character</p>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Resetting..." : "Reset Password"}
+            <button type="submit" disabled={loading}
+              className="w-full mt-1 bg-white text-gray-900 font-bold text-sm py-3 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-black/20">
+              {loading ? <span className="flex items-center justify-center gap-2"><Spinner />Resetting…</span> : "Reset Password"}
             </button>
           </form>
         )}
 
-        {/* Step 3: Success */}
+        {/* Step 3 — Success */}
         {step === 3 && (
-          <div className="text-center space-y-6">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
+          <div className="flex flex-col items-center text-center gap-6">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
+              <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
             </div>
-
-            <p className="text-gray-600">
-              Your password has been reset successfully. You can now sign in
-              with your new password.
-            </p>
-
-            <Link
-              href="/login"
-              className="inline-block w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 text-center transition-colors"
-            >
+            <Link href="/login"
+              className="w-full bg-white text-gray-900 font-bold text-sm py-3 rounded-xl hover:bg-gray-100 transition-all shadow-lg shadow-black/20 text-center">
               Continue to Sign In
             </Link>
           </div>
         )}
 
-        {/* Footer - only show for steps 1 and 2 */}
+        {/* Footer */}
         {step < 3 && (
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Remember your password?{" "}
-              <Link
-                href="/login"
-                className="text-blue-600 hover:text-blue-500 font-medium"
-              >
-                Sign in
-              </Link>
+          <div className="mt-4 pt-4 border-t border-white/[0.08] text-center">
+            <p className="text-white/35 text-sm">
+              Remember it?{" "}
+              <Link href="/login" className="text-white/65 font-semibold hover:text-white transition-colors">Sign in</Link>
             </p>
           </div>
         )}

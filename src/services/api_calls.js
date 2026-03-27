@@ -1939,6 +1939,15 @@ export const getHealthScore = async () => {
   return await response.json();
 };
 
+export const getPetTimeline = async (days = 30) => {
+  const response = await authenticatedFetch(`${BASE_URL}/api/v1/pets/timeline?days=${days}`, { method: "GET" });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch pet timeline");
+  }
+  return await response.json();
+};
+
 export const selectPet = async (petKey) => {
   const response = await authenticatedFetch(`${BASE_URL}/api/v1/pets/select`, {
     method: "POST",
@@ -1962,3 +1971,89 @@ export const customizePet = async (data) => {
   }
   return await response.json();
 };
+
+
+// ─── Health Reports API (Sprint 10) ──────────────────────────────────────────
+
+export const generateReport = async (data) => {
+  const response = await authenticatedFetch(`${BASE_URL}/api/v1/reports`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to generate report");
+  }
+  return await response.json();
+};
+
+export const listReports = async ({ patientUserId, limit = 20 } = {}) => {
+  const params = new URLSearchParams({ limit });
+  if (patientUserId) params.set("patient_user_id", patientUserId);
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/reports?${params}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch reports");
+  }
+  return await response.json();
+};
+
+export const getReport = async (reportId, patientUserId) => {
+  const params = patientUserId ? `?patient_user_id=${patientUserId}` : "";
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/reports/${reportId}${params}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch report");
+  }
+  return await response.json();
+};
+
+export const downloadReportPdf = async (reportId, patientUserId) => {
+  const params = patientUserId ? `?patient_user_id=${patientUserId}` : "";
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/reports/${reportId}/download/pdf${params}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to get PDF download URL");
+  }
+  const { url } = await response.json();
+  window.open(url, "_blank");
+};
+
+export const downloadReportCsv = async (reportId, patientUserId) => {
+  const params = patientUserId ? `?patient_user_id=${patientUserId}` : "";
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/reports/${reportId}/download/csv${params}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to get CSV download URL");
+  }
+  const { url } = await response.json();
+  window.open(url, "_blank");
+};
+
+export const getReportPreview = async ({ dateFrom, dateTo, biomarkerTypes, patientUserId } = {}) => {
+  const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+  if (biomarkerTypes && biomarkerTypes.length) params.set("biomarker_types", biomarkerTypes.join(","));
+  if (patientUserId) params.set("patient_user_id", patientUserId);
+  const response = await authenticatedFetch(
+    `${BASE_URL}/api/v1/reports/preview/data?${params}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to fetch preview data");
+  }
+  return await response.json();
+};
+
