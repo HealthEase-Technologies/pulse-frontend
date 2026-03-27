@@ -88,7 +88,7 @@ export default function ContactPage() {
                       </svg>
                     ),
                     label: "General",
-                    value: "hello@pulse-health.io",
+                    value: "hello@getpulse.app",
                   },
                   {
                     icon: (
@@ -97,7 +97,7 @@ export default function ContactPage() {
                       </svg>
                     ),
                     label: "HCP & Clinic Sales",
-                    value: "providers@pulse-health.io",
+                    value: "providers@getpulse.app",
                   },
                   {
                     icon: (
@@ -106,7 +106,7 @@ export default function ContactPage() {
                       </svg>
                     ),
                     label: "Press",
-                    value: "press@pulse-health.io",
+                    value: "press@getpulse.app",
                   },
                 ].map((c) => (
                   <div key={c.label} className="flex gap-3">
