@@ -5,266 +5,159 @@ import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 import { getAlertHistory, acknowledgeAlert } from "@/services/api_calls";
 
-const BIOMARKER_LABELS = {
-  heart_rate: "Heart Rate",
-  blood_pressure_systolic: "BP Systolic",
+/* ─── constants ──────────────────────────────────────────────────── */
+const BIO_LABELS = {
+  heart_rate:               "Heart Rate",
+  blood_pressure_systolic:  "BP Systolic",
   blood_pressure_diastolic: "BP Diastolic",
-  glucose: "Glucose",
-  steps: "Steps",
-  sleep: "Sleep",
+  glucose:                  "Glucose",
+  steps:                    "Steps",
+  sleep:                    "Sleep",
 };
 
-const BIOMARKER_ICONS = {
-  heart_rate: "H",
-  blood_pressure_systolic: "S",
-  blood_pressure_diastolic: "D",
-  glucose: "G",
-  steps: "W",
-  sleep: "Z",
+const SEVERITY_CLS = {
+  critical: "bg-red-500/10 border-red-500/20 text-red-400",
+  warning:  "bg-amber-500/10 border-amber-500/20 text-amber-400",
+  info:     "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
 };
 
-function formatDate(dateString) {
-  if (!dateString) return "—";
-  const d = new Date(dateString);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+const FILTERS = [
+  { key: "all",             label: "All"             },
+  { key: "critical",        label: "Critical"        },
+  { key: "warning",         label: "Warning"         },
+  { key: "unacknowledged",  label: "Unread"          },
+];
 
+const LIMIT = 20;
+
+/* ─── helpers ────────────────────────────────────────────────────── */
+const fmtDate = (ts) => {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString(undefined, { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" });
+};
+
+/* ─── main ───────────────────────────────────────────────────────── */
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all"); // all, warning, critical, unacknowledged
-  const [offset, setOffset] = useState(0);
-  const [acknowledging, setAcknowledging] = useState(null);
-  const LIMIT = 20;
+  const [alerts,       setAlerts]       = useState([]);
+  const [total,        setTotal]        = useState(0);
+  const [loading,      setLoading]      = useState(true);
+  const [filter,       setFilter]       = useState("all");
+  const [offset,       setOffset]       = useState(0);
+  const [acking,       setAcking]       = useState(null);
 
-  async function loadAlerts(reset = false) {
+  const loadAlerts = async (reset = false) => {
+    if (reset) setLoading(true);
     try {
-      if (reset) setLoading(true);
-      const currentOffset = reset ? 0 : offset;
-
-      const params = { limit: LIMIT, offset: currentOffset };
-      if (filter === "warning") params.alertType = "warning";
-      if (filter === "critical") params.alertType = "critical";
-      if (filter === "unacknowledged") params.status = "notified";
-
+      const cur  = reset ? 0 : offset;
+      const params = { limit: LIMIT, offset: cur };
+      if (filter === "warning")        params.alertType = "warning";
+      if (filter === "critical")       params.alertType = "critical";
+      if (filter === "unacknowledged") params.status    = "notified";
       const result = await getAlertHistory(params);
+      if (reset) { setAlerts(result.alerts || []); setOffset(LIMIT); }
+      else       { setAlerts((p) => [...p, ...(result.alerts || [])]); setOffset((p) => p + LIMIT); }
+      setTotal(result.total_count || 0);
+    } catch (_) {}
+    finally { setLoading(false); }
+  };
 
-      if (reset) {
-        setAlerts(result.alerts || []);
-        setOffset(LIMIT);
-      } else {
-        setAlerts((prev) => [...prev, ...(result.alerts || [])]);
-        setOffset((prev) => prev + LIMIT);
-      }
-      setTotalCount(result.total_count || 0);
-    } catch (e) {
-      console.error("Failed to load alerts:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => { loadAlerts(true); }, [filter]);
 
-  useEffect(() => {
-    loadAlerts(true);
-  }, [filter]);
-
-  async function handleAcknowledge(alertId) {
-    setAcknowledging(alertId);
+  const handleAck = async (id) => {
+    setAcking(id);
     try {
-      await acknowledgeAlert(alertId);
-      setAlerts((prev) =>
-        prev.map((a) =>
-          a.id === alertId
-            ? { ...a, status: "acknowledged", acknowledged_at: new Date().toISOString() }
-            : a
-        )
-      );
-    } catch (e) {
-      console.error("Failed to acknowledge:", e);
-    } finally {
-      setAcknowledging(null);
-    }
-  }
+      await acknowledgeAlert(id);
+      setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, acknowledged_at: new Date().toISOString() } : a));
+    } catch (_) {}
+    finally { setAcking(null); }
+  };
 
-  const filters = [
-    { key: "all", label: "All Alerts" },
-    { key: "critical", label: "Critical" },
-    { key: "warning", label: "Warning" },
-    { key: "unacknowledged", label: "Unacknowledged" },
-  ];
+  const unread = alerts.filter((a) => !a.acknowledged_at).length;
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-3xl mx-auto pb-10 space-y-6">
+
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Alert History</h1>
-          <p className="text-gray-600 text-sm mt-1">
-            View all health alerts triggered by your biomarker readings.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Alerts</h1>
+            <p className="text-white/40 text-sm mt-1">Your biomarker alert history.</p>
+          </div>
+          {unread > 0 && (
+            <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+              {unread} unread
+            </span>
+          )}
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                filter === f.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${filter === f.key ? "bg-indigo-500/15 border-indigo-500/25 text-indigo-300" : "bg-white/[0.03] border-white/[0.07] text-white/40 hover:text-white/60"}`}>
               {f.label}
             </button>
           ))}
+          <span className="ml-auto text-white/25 text-xs self-center">{total} total</span>
         </div>
 
-        {/* Loading */}
+        {/* List */}
         {loading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse bg-gray-100 rounded-xl p-6">
-                <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
-                <div className="h-3 bg-gray-200 rounded w-2/3" />
-              </div>
-            ))}
+            {[...Array(5)].map((_, i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.03] border border-white/[0.05] animate-pulse" />)}
           </div>
         ) : alerts.length === 0 ? (
-          /* Empty State */
-          <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="text-4xl mb-3">
-              {filter === "all" ? "🔔" : filter === "critical" ? "🚨" : "⚠️"}
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900">No alerts found</h3>
-            <p className="text-gray-500 text-sm mt-1">
-              {filter === "all"
-                ? "No health alerts have been triggered yet."
-                : `No ${filter} alerts found.`}
-            </p>
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-8 text-center text-white/25 text-sm">
+            No alerts found.
           </div>
         ) : (
-          /* Alert List */
           <div className="space-y-3">
-            {alerts.map((alert) => {
-              const isCritical = alert.alert_type === "critical";
-              const isAcknowledged = alert.status === "acknowledged" || alert.status === "resolved";
-              const isUnread = alert.status === "triggered" || alert.status === "notified";
-
+            {alerts.map((a) => {
+              const sev = a.alert_type || (a.value > (a.threshold_max ?? Infinity) ? "critical" : "warning");
               return (
-                <div
-                  key={alert.id}
-                  className={`rounded-xl border p-5 transition-all ${
-                    isCritical
-                      ? isUnread
-                        ? "bg-red-50 border-red-300 shadow-sm"
-                        : "bg-red-50/50 border-red-200"
-                      : isUnread
-                      ? "bg-amber-50 border-amber-300 shadow-sm"
-                      : "bg-amber-50/50 border-amber-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      {/* Icon */}
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                          isCritical
-                            ? "bg-red-100 text-red-700"
-                            : "bg-amber-100 text-amber-700"
-                        }`}
-                      >
-                        {BIOMARKER_ICONS[alert.biomarker_type] || "?"}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        {/* Title */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                              isCritical
-                                ? "bg-red-100 text-red-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {isCritical ? "CRITICAL" : "WARNING"}
-                          </span>
-                          <h3 className="font-semibold text-gray-900">
-                            {BIOMARKER_LABELS[alert.biomarker_type] || alert.biomarker_type}
-                          </h3>
-                          {isUnread && (
-                            <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                          )}
-                        </div>
-
-                        {/* Details */}
-                        <p className="text-sm text-gray-700 mt-1">
-                          Reading of{" "}
-                          <strong>
-                            {alert.value} {alert.unit}
-                          </strong>{" "}
-                          is {alert.alert_direction === "high" ? "above" : "below"} the{" "}
-                          {alert.alert_type} threshold of{" "}
-                          <strong>
-                            {alert.threshold_value} {alert.unit}
-                          </strong>
+                <div key={a.id} className={`rounded-2xl border p-4 ${a.acknowledged_at ? "border-white/[0.07] bg-white/[0.02]" : "border-white/12 bg-white/[0.04]"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${a.acknowledged_at ? "bg-white/15" : "bg-red-400"}`} />
+                      <div>
+                        <p className="text-white/70 text-sm font-medium">
+                          {BIO_LABELS[a.biomarker_type] || a.biomarker_type || "Alert"}
+                          {a.value != null && <span className="text-white/40 font-normal"> — {a.value} {a.unit || ""}</span>}
                         </p>
-
-                        {/* Meta */}
-                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
-                          <span>{formatDate(alert.created_at)}</span>
-                          <span className="capitalize">Source: {alert.threshold_source}</span>
-                          {alert.notification_channels?.length > 0 && (
-                            <span>
-                              Notified via: {alert.notification_channels.join(", ")}
-                            </span>
-                          )}
-                          {isAcknowledged && (
-                            <span className="text-green-600 font-medium">
-                              Acknowledged {alert.acknowledged_at ? formatDate(alert.acknowledged_at) : ""}
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-white/40 text-xs mt-0.5 leading-snug">{a.message || "Threshold exceeded."}</p>
+                        <p className="text-white/25 text-xs mt-1">{fmtDate(a.triggered_at || a.created_at)}</p>
                       </div>
                     </div>
-
-                    {/* Acknowledge Button */}
-                    {isUnread && (
-                      <button
-                        onClick={() => handleAcknowledge(alert.id)}
-                        disabled={acknowledging === alert.id}
-                        className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          acknowledging === alert.id
-                            ? "bg-gray-100 text-gray-400"
-                            : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {acknowledging === alert.id ? "..." : "Acknowledge"}
-                      </button>
-                    )}
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${SEVERITY_CLS[sev] || SEVERITY_CLS.warning}`}>
+                        {sev?.charAt(0).toUpperCase() + sev?.slice(1) || "Alert"}
+                      </span>
+                      {!a.acknowledged_at && (
+                        <button onClick={() => handleAck(a.id)} disabled={acking === a.id}
+                          className="px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-white/[0.09] text-white/40 hover:text-white/60 transition-colors disabled:opacity-40">
+                          {acking === a.id ? "…" : "Dismiss"}
+                        </button>
+                      )}
+                      {a.acknowledged_at && (
+                        <span className="text-white/20 text-xs">Dismissed</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
 
-            {/* Load More */}
-            {alerts.length < totalCount && (
-              <button
-                onClick={() => loadAlerts(false)}
-                className="w-full py-3 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors"
-              >
-                Load More ({alerts.length} of {totalCount})
-              </button>
-            )}
+        {/* Load more */}
+        {!loading && alerts.length < total && (
+          <div className="flex justify-center">
+            <button onClick={() => loadAlerts(false)}
+              className="px-6 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07] text-white/40 text-sm hover:bg-white/[0.07] hover:text-white/60 transition-colors">
+              Load more
+            </button>
           </div>
         )}
       </div>

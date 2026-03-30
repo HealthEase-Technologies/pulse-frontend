@@ -72,7 +72,8 @@ const authenticatedFetch = async (url, options = {}) => {
 
     // Check for unauthorized access
     if (response.status === 401 || response.status === 403) {
-      console.warn('Unauthorized access detected. Logging out...');
+      const errBody = await response.clone().json().catch(() => ({}));
+      console.error('[Auth 401] detail:', errBody?.detail, '| token present:', !!localStorage.getItem('access-token'));
       handleUnauthorized();
       throw new Error('Session expired. Please log in again.');
     }

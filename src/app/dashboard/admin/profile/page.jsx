@@ -5,13 +5,20 @@ import { getCurrentUser } from "@/services/api_calls";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 
+function Field({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5">{label}</p>
+      <p className="text-sm text-white">{value || "—"}</p>
+    </div>
+  );
+}
+
 export default function AdminProfile() {
   const [userInfo, setUserInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
 
-  useEffect(() => {
-    loadUserInfo();
-  }, []);
+  useEffect(() => { loadUserInfo(); }, []);
 
   const loadUserInfo = async () => {
     try {
@@ -24,67 +31,49 @@ export default function AdminProfile() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
     <RoleProtection allowedRoles={[USER_ROLES.ADMIN]}>
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile</h1>
+      <div className="max-w-2xl mx-auto">
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
+        {/* Header */}
+        <div className="mb-8">
+          <p className="text-white/30 text-xs font-semibold uppercase tracking-widest mb-1">Admin</p>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Profile</h1>
+        </div>
+
+        {loading ? (
+          <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 space-y-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="h-2.5 bg-white/[0.06] rounded w-20 animate-pulse" />
+                <div className="h-4 bg-white/[0.04] rounded w-48 animate-pulse" />
+              </div>
+            ))}
           </div>
+        ) : (
+          <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.07]">
+              <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Personal Information</p>
+            </div>
 
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Field label="Full Name"    value={userInfo?.full_name} />
+              <Field label="Email"        value={userInfo?.email} />
+              <Field label="Username"     value={userInfo?.username} />
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <p className="text-gray-900">{userInfo?.full_name}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <p className="text-gray-900">{userInfo?.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <p className="text-gray-900">{userInfo?.username}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Role
-                </label>
-                <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                <p className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-1.5">Role</p>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border bg-purple-500/15 border-purple-500/20 text-purple-400">
                   Admin
                 </span>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Member Since
-                </label>
-                <p className="text-gray-900">
-                  {userInfo?.created_at ? new Date(userInfo.created_at).toLocaleDateString() : 'N/A'}
-                </p>
-              </div>
+              <Field
+                label="Member Since"
+                value={userInfo?.created_at ? new Date(userInfo.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null}
+              />
             </div>
           </div>
-        </div>
+        )}
+
       </div>
     </RoleProtection>
   );

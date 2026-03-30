@@ -32,13 +32,13 @@ export default function DashboardLayout({ children }) {
   const showSidebar = userRole && pathname !== "/dashboard";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[#070c18] flex">
       {/* Sidebar */}
       {showSidebar && <Sidebar userRole={userRole} />}
 
       {/* Main Content */}
-      <div className="flex-1">
-        <main className={`${showSidebar ? "p-8" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}`}>
+      <div className="flex-1 min-w-0">
+        <main className={`${showSidebar ? "pt-16 px-4 pb-4 md:p-6" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}`}>
           {children}
         </main>
       </div>

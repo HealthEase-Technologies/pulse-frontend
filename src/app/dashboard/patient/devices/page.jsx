@@ -1,379 +1,230 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {getDevices, getMyDevices, connectDevice, disconnectDevice, getDeviceDetails, simulateDeviceData,} 
-from "@/services/api_calls";
+import {
+  getDevices, getMyDevices, connectDevice, disconnectDevice,
+  getDeviceDetails, simulateDeviceData,
+} from "@/services/api_calls";
+import RoleProtection from "@/components/RoleProtection";
+import { USER_ROLES } from "@/hooks/useUserRole";
 
-/* ---------------- Helpers ---------------- */
+/* ─── helpers ────────────────────────────────────────────────────── */
+const fmtDate = (ts) => { if (!ts) return "N/A"; const d = new Date(ts); return Number.isNaN(d.getTime()) ? "N/A" : d.toLocaleString(); };
+const prettyType = (raw) => {
+  if (!raw) return "";
+  return String(raw).replace(/^devicetype\./i, "").toLowerCase().split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+};
+const fmtBio = (b) => String(b).split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
-function chipStyle(label) {
-  const l = String(label).toLowerCase();
-  if (l.includes("heart")) return "bg-rose-50 text-rose-700 border-rose-200";
-  if (l.includes("sleep")) return "bg-indigo-50 text-indigo-700 border-indigo-200";
-  if (l.includes("steps")) return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (l.includes("water")) return "bg-sky-50 text-sky-700 border-sky-200";
-  if (l.includes("blood")) return "bg-purple-50 text-purple-700 border-purple-200";
-  if (l.includes("glucose")) return "bg-amber-50 text-amber-800 border-amber-200";
-  return "bg-gray-50 text-gray-700 border-gray-200";
-}
+const TABS = ["all","connected","available"];
 
-function biomarkerIcon(label) {
-  const l = String(label).toLowerCase();
-  if (l.includes("heart")) return "♥";
-  if (l.includes("sleep")) return "Zz";
-  if (l.includes("steps")) return "👣";
-  if (l.includes("water")) return "💧";
-  if (l.includes("blood")) return "BP";
-  if (l.includes("glucose")) return "G";
-  return "•";
-}
-
-function formatBiomarkerName(biomarker) {
-  return String(biomarker)
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function formatDate(dateString) {
-  if (!dateString) return "N/A";
-  return new Date(dateString).toLocaleString();
-}
-
-// Only for showing a nicer label in UI (do not send this to the API)
-function prettyDeviceType(deviceTypeRaw) {
-  if (!deviceTypeRaw) return "";
-  const raw = String(deviceTypeRaw);
-  const noPrefix = raw.replace(/^devicetype\./i, "");
-  return noPrefix
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-/* ---------------- Page ---------------- */
-
+/* ─── main ───────────────────────────────────────────────────────── */
 export default function DevicesPage() {
-  const [devices, setDevices] = useState([]);
-  const [activeTab, setActiveTab] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [devices,      setDevices]      = useState([]);
+  const [activeTab,    setActiveTab]    = useState("all");
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState(null);
+  const [actionLoad,   setActionLoad]   = useState(false);
+  const [toast,        setToast]        = useState(null);
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState("connect"); // connect | details | simulate
-  const [selectedDevice, setSelectedDevice] = useState(null);
-  const [deviceDetails, setDeviceDetails] = useState(null);
-  const [step, setStep] = useState("oauth"); // oauth -> pairing -> done
-  const [actionLoading, setActionLoading] = useState(false);
+  /* modal state */
+  const [modalOpen,    setModalOpen]    = useState(false);
+  const [modalType,    setModalType]    = useState("connect"); // connect | details | simulate
+  const [selDevice,    setSelDevice]    = useState(null);
+  const [devDetails,   setDevDetails]   = useState(null);
+  const [step,         setStep]         = useState("oauth"); // oauth | pairing | done
+  const [daysHistory,  setDaysHistory]  = useState(1);
+  const [returnToDet,  setReturnToDet]  = useState(false);
 
-  const [daysOfHistory, setDaysOfHistory] = useState(1);
-  const [toast, setToast] = useState(null);
-  const [returnToDetails, setReturnToDetails] = useState(false);
+  const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 5000); };
 
-  async function fetchDevices() {
+  const fetchDevices = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-
-      const [availableTypes, myDevices] = await Promise.all([getDevices(), getMyDevices()]);
-
-      // Connected devices keyed by device_type (exactly as backend returns it)
-      const connectedMap = new Map(myDevices.map((d) => [d.device_type, d]));
-
-      const transformed = availableTypes.map((d) => {
-        const connectedDevice = connectedMap.get(d.device_type);
-
+      const [avail, mine] = await Promise.all([getDevices(), getMyDevices()]);
+      const connMap = new Map((mine || []).map((d) => [d.device_type, d]));
+      setDevices((avail || []).map((d) => {
+        const conn = connMap.get(d.device_type);
         return {
-          // for disconnect/details we need the connected device id (if connected)
-          id: connectedDevice?.id || d.id,
-
-          // ✅ IMPORTANT: send this EXACT value when connecting
-          deviceTypeRaw: d.device_type,
-
-          // UI fields
-          name: d.display_name,
-          manufacturer: d.manufacturer,
-          deviceTypeLabel: prettyDeviceType(d.device_type),
-          biomarkers: (d.supported_biomarkers || []).map(formatBiomarkerName),
-          iconUrl: d.icon_url,
-          description: d.description,
-
-          isConnected: !!connectedDevice,
-          status: connectedDevice?.status || "available",
-          connectedAt: connectedDevice?.connected_at,
+          id:             conn?.id || d.id,
+          deviceTypeRaw:  d.device_type,
+          name:           d.display_name,
+          manufacturer:   d.manufacturer,
+          typeLabel:      prettyType(d.device_type),
+          biomarkers:     (d.supported_biomarkers || []).map(fmtBio),
+          description:    d.description,
+          iconUrl:        d.icon_url,
+          isConnected:    !!conn,
+          status:         conn?.status || "available",
+          connectedAt:    conn?.connected_at,
         };
-      });
-
-      setDevices(transformed);
+      }));
       setError(null);
-    } catch (err) {
-      console.error("Fetch devices error:", err);
-      setError(err?.message || "Failed to load devices");
-    } finally {
-      setLoading(false);
-    }
-  }
+    } catch (err) { setError(err?.message || "Failed to load devices"); }
+    finally { setLoading(false); }
+  };
 
-  useEffect(() => {
-    fetchDevices();
-  }, []);
+  useEffect(() => { fetchDevices(); }, []);
 
-  const connectedDevices = useMemo(() => devices.filter((d) => d.isConnected), [devices]);
-  const availableDevices = useMemo(() => devices.filter((d) => !d.isConnected), [devices]);
-
-  const visibleDevices = useMemo(() => {
-    if (activeTab === "connected") return connectedDevices;
-    if (activeTab === "available") return availableDevices;
+  const connDevices = useMemo(() => devices.filter((d) => d.isConnected),  [devices]);
+  const availDevices= useMemo(() => devices.filter((d) => !d.isConnected), [devices]);
+  const visible     = useMemo(() => {
+    if (activeTab === "connected") return connDevices;
+    if (activeTab === "available") return availDevices;
     return devices;
-  }, [activeTab, devices, connectedDevices, availableDevices]);
+  }, [activeTab, devices, connDevices, availDevices]);
 
-  function openConnect(device) {
-    setSelectedDevice(device);
-    setModalType("connect");
-    setStep("oauth");
-    setModalOpen(true);
-  }
+  const closeModal = () => { setModalOpen(false); setSelDevice(null); setDevDetails(null); setStep("oauth"); };
 
-  async function openDetails(device) {
+  const openConnect = (d) => { setSelDevice(d); setModalType("connect"); setStep("oauth"); setModalOpen(true); };
+
+  const openDetails = async (d) => {
+    setSelDevice(d); setModalType("details"); setModalOpen(true); setActionLoad(true);
+    try { setDevDetails(await getDeviceDetails(d.id)); }
+    catch (err) { setError(err?.message || "Failed to load details"); closeModal(); }
+    finally { setActionLoad(false); }
+  };
+
+  const openSimulate = (d, fromDet = false) => {
+    setSelDevice(d); setModalType("simulate"); setDaysHistory(1); setReturnToDet(fromDet); setModalOpen(true);
+  };
+
+  const handleConnect = async () => {
+    if (!selDevice) return;
+    setActionLoad(true);
     try {
-      setSelectedDevice(device);
-      setModalType("details");
-      setModalOpen(true);
-      setActionLoading(true);
-
-      const details = await getDeviceDetails(device.id);
-      setDeviceDetails(details);
-    } catch (err) {
-      console.error("Failed to load device details:", err);
-      setError(err?.message || "Failed to load device details");
-      closeModal();
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  function closeModal() {
-    setModalOpen(false);
-    setSelectedDevice(null);
-    setDeviceDetails(null);
-    setStep("oauth");
-  }
-
-  function approve() {
-    setStep("pairing");
-    setTimeout(() => setStep("done"), 800);
-  }
-
-  async function finish() {
-    if (!selectedDevice) return;
-
-    try {
-      setActionLoading(true);
-
-      await connectDevice({
-      deviceType: selectedDevice.deviceTypeRaw,  // e.g. apple_watch
-      deviceName: selectedDevice.name,           // e.g. Apple Watch
-});
-
+      await connectDevice({ deviceType: selDevice.deviceTypeRaw, deviceName: selDevice.name });
       await fetchDevices();
       closeModal();
-    } catch (err) {
-      console.error("Connection error:", err);
-      setError(err?.message || "Failed to connect device");
-      setStep("oauth");
-    } finally {
-      setActionLoading(false);
-    }
-  }
+      showToast("success", `${selDevice.name} connected successfully.`);
+    } catch (err) { setError(err?.message || "Failed to connect"); setStep("oauth"); }
+    finally { setActionLoad(false); }
+  };
 
-  async function disconnect(id) {
+  const handleDisconnect = async (d) => {
+    if (!confirm(`Disconnect ${d.name}?`)) return;
+    setActionLoad(true);
+    try { await disconnectDevice(d.id); await fetchDevices(); showToast("success", `${d.name} disconnected.`); }
+    catch (err) { setError(err?.message || "Failed to disconnect"); }
+    finally { setActionLoad(false); }
+  };
+
+  const handleSimulate = async () => {
+    if (!selDevice) return;
+    setActionLoad(true);
     try {
-      setActionLoading(true);
-      await disconnectDevice(id);
-      await fetchDevices();
-    } catch (err) {
-      console.error("Disconnect error:", err);
-      setError(err?.message || "Failed to disconnect device");
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  function openSimulateModal(device, fromDetails = false) {
-    setSelectedDevice(device);
-    setModalType("simulate");
-    setDaysOfHistory(1);
-    setReturnToDetails(fromDetails);
-    setModalOpen(true);
-  }
-
-  async function handleSimulateData() {
-    if (!selectedDevice) return;
-
-    try {
-      setActionLoading(true);
-      const response = await simulateDeviceData(selectedDevice.id, daysOfHistory);
-
-      // Show success toast
-      showToast({
-        type: "success",
-        title: "Data Simulated Successfully",
-        message: `Generated ${response?.total_readings || 0} readings for ${response?.biomarkers_generated?.join(", ") || "biomarkers"}`,
-      });
-
-      // Return to details modal if we came from there
-      if (returnToDetails) {
-        setModalType("details");
-        const details = await getDeviceDetails(selectedDevice.id);
-        setDeviceDetails(details);
-        setReturnToDetails(false);
-      } else {
-        closeModal();
-      }
-    } catch (err) {
-      console.error("Simulate data error:", err);
-      showToast({
-        type: "error",
-        title: "Simulation Failed",
-        message: err?.message || "Failed to simulate device data",
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  function showToast({ type, title, message }) {
-    setToast({ type, title, message });
-    setTimeout(() => setToast(null), 5000);
-  }
-
-  /* ---------------- UI ---------------- */
+      const res = await simulateDeviceData(selDevice.id, daysHistory);
+      showToast("success", `Generated ${res?.total_readings || 0} readings.`);
+      if (returnToDet) { setModalType("details"); setDevDetails(await getDeviceDetails(selDevice.id)); setReturnToDet(false); }
+      else closeModal();
+    } catch (err) { showToast("error", err?.message || "Simulation failed"); }
+    finally { setActionLoad(false); }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Devices</h1>
-      <p className="text-gray-600 mb-8">
-        Connect and manage your health monitoring devices
-      </p>
+    <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
+      <div className="max-w-4xl mx-auto pb-10 space-y-6">
 
-      {/* Error Alert */}
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {error}
-          <button
-            onClick={() => {
-              setError(null);
-              fetchDevices();
-            }}
-            className="ml-3 text-xs underline"
-          >
-            Retry
-          </button>
+        {/* Header */}
+        <div>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Devices</h1>
+          <p className="text-white/40 text-sm mt-1">Connect health devices to automatically sync your biomarker data.</p>
         </div>
-      )}
 
-      {/* Tabs */}
-      <div className="mb-6 flex gap-2">
-        {[
-          { key: "all", label: "All", count: devices.length },
-          { key: "connected", label: "Connected", count: connectedDevices.length },
-          { key: "available", label: "Available", count: availableDevices.length },
-        ].map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-              activeTab === t.key
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            {t.label} ({t.count})
-          </button>
-        ))}
-      </div>
+        {/* Toast */}
+        {toast && (
+          <div className={`px-4 py-3 rounded-xl text-sm border ${toast.type === "success" ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+            {toast.msg}
+          </div>
+        )}
+        {error && <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
-      {/* Content Area */}
-      <div className="relative min-h-[400px]">
+        {/* Connected summary */}
+        {connDevices.length > 0 && (
+          <div className="rounded-2xl border border-green-500/15 bg-green-500/[0.04] px-5 py-3 flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-400" />
+            <p className="text-green-400/80 text-sm">{connDevices.length} device{connDevices.length !== 1 ? "s" : ""} connected and syncing</p>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {TABS.map((t) => (
+            <button key={t} onClick={() => setActiveTab(t)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors capitalize ${activeTab === t ? "bg-indigo-500/15 border-indigo-500/25 text-indigo-300" : "bg-white/[0.03] border-white/[0.07] text-white/40 hover:text-white/60"}`}>
+              {t === "all" ? `All (${devices.length})` : t === "connected" ? `Connected (${connDevices.length})` : `Available (${availDevices.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Grid */}
         {loading ? (
-          <LoadingState />
-        ) : visibleDevices.length === 0 ? (
-          <EmptyState activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => <div key={i} className="h-40 rounded-2xl bg-white/[0.03] border border-white/[0.05] animate-pulse" />)}
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-8 text-center text-white/25 text-sm">
+            No devices in this category.
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {visibleDevices.map((d) => (
-              <div
-                key={d.id}
-                className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition flex flex-col"
-              >
-                {/* Device Header */}
-                <div className="flex items-start gap-3 mb-3">
-                  {d.iconUrl ? (
-                    <img
-                      src={d.iconUrl}
-                      alt={d.name}
-                      className="h-12 w-12 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-lg font-semibold">
-                      {d.name?.charAt(0) || "D"}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visible.map((d) => (
+              <div key={d.id} className={`rounded-2xl border p-5 space-y-3 transition-colors ${d.isConnected ? "border-green-500/15 bg-green-500/[0.04]" : "border-white/[0.07] bg-white/[0.03]"}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Device icon */}
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {d.iconUrl ? (
+                        <img src={d.iconUrl} alt={d.name} className="w-7 h-7 object-contain" />
+                      ) : (
+                        <svg className="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4m6-18h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M9 3v18m6-18v18" />
+                        </svg>
+                      )}
                     </div>
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-sm">
-                      {d.name}
-                    </h3>
-                    <p className="text-xs text-gray-500">{d.manufacturer}</p>
-                    {d.isConnected && (
-                      <span className="inline-flex items-center gap-1 mt-1 text-xs text-emerald-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                        Connected
-                      </span>
-                    )}
+                    <div className="min-w-0">
+                      <p className="text-white/85 text-sm font-semibold leading-snug truncate">{d.name}</p>
+                      <p className="text-white/35 text-xs truncate">{d.manufacturer}</p>
+                    </div>
                   </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0 ${d.isConnected ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-white/[0.05] border-white/[0.08] text-white/35"}`}>
+                    {d.isConnected ? "Connected" : "Available"}
+                  </span>
                 </div>
 
-                {/* Biomarkers */}
-                <div className="flex-1 mb-3">
+                {d.description && <p className="text-white/40 text-xs leading-relaxed line-clamp-2">{d.description}</p>}
+
+                {d.biomarkers.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {d.biomarkers.map((b) => (
-                      <span
-                        key={b}
-                        className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs ${chipStyle(b)}`}
-                      >
-                        {biomarkerIcon(b)} {b}
-                      </span>
+                    {d.biomarkers.slice(0, 4).map((b) => (
+                      <span key={b} className="text-xs px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.09] text-white/45">{b}</span>
                     ))}
+                    {d.biomarkers.length > 4 && <span className="text-xs text-white/30">+{d.biomarkers.length - 4} more</span>}
                   </div>
-                </div>
+                )}
+
+                {d.connectedAt && <p className="text-white/30 text-xs">Connected since {fmtDate(d.connectedAt)}</p>}
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto">
+                <div className="flex gap-2 pt-1">
                   {d.isConnected ? (
                     <>
-                      <button
-                        onClick={() => openDetails(d)}
-                        disabled={actionLoading}
-                        className="flex-1 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                      >
+                      <button onClick={() => openDetails(d)}
+                        className="flex-1 py-1.5 rounded-lg text-xs border border-white/[0.09] text-white/40 hover:text-white/60 hover:bg-white/[0.04] transition-colors">
                         Details
                       </button>
-                      <button
-                        onClick={() => disconnect(d.id)}
-                        disabled={actionLoading}
-                        className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        Disconnect
+                      <button onClick={() => openSimulate(d)}
+                        className="flex-1 py-1.5 rounded-lg text-xs border border-indigo-500/20 bg-indigo-500/[0.07] text-indigo-300 hover:bg-indigo-500/15 transition-colors">
+                        Simulate
+                      </button>
+                      <button onClick={() => handleDisconnect(d)} disabled={actionLoad}
+                        className="py-1.5 px-3 rounded-lg text-xs border border-red-500/20 text-red-400/70 hover:bg-red-500/[0.08] transition-colors disabled:opacity-40">
+                        ×
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => openConnect(d)}
-                      disabled={actionLoading}
-                      className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
+                    <button onClick={() => openConnect(d)}
+                      className="w-full py-1.5 rounded-lg text-xs border border-indigo-500/20 bg-indigo-500/[0.07] text-indigo-300 hover:bg-indigo-500/15 transition-colors">
                       Connect
                     </button>
                   )}
@@ -382,252 +233,115 @@ export default function DevicesPage() {
             ))}
           </div>
         )}
-      </div>
 
-      {/* Connect Modal */}
-      {modalOpen && modalType === "connect" && selectedDevice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
-            <div className="text-lg font-semibold text-gray-900">Connect {selectedDevice.name}</div>
-            <p className="mt-1 text-sm text-gray-600">{selectedDevice.description}</p>
+        {/* ── Modals ── */}
+        {modalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <div className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-[#0d1525] shadow-2xl p-6 space-y-5">
 
-            {step === "oauth" && (
-              <div className="mt-4 space-y-3">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-                  Authorize Pulse to access your {selectedDevice.name} data.
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={closeModal}
-                    disabled={actionLoading}
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={approve}
-                    disabled={actionLoading}
-                    className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {step === "pairing" && (
-              <div className="mt-4 text-sm text-gray-700">
-                Pairing with device...
-                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                  <div className="h-full w-2/3 animate-pulse bg-blue-500" />
-                </div>
-              </div>
-            )}
-
-            {step === "done" && (
-              <button
-                onClick={finish}
-                disabled={actionLoading}
-                className="mt-4 w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {actionLoading ? "Connecting..." : "Done"}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Simulate Data Modal */}
-      {modalOpen && modalType === "simulate" && selectedDevice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
-            <div className="text-lg font-semibold text-gray-900">Simulate Device Data</div>
-            <p className="mt-1 text-sm text-gray-600">
-              Generate test data for {selectedDevice.name}
-            </p>
-
-            <div className="mt-4 space-y-3">
-              <div>
-                <label htmlFor="days" className="block text-sm font-medium text-gray-700 mb-2">
-                  Days of History
-                </label>
-                <input
-                  id="days"
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={daysOfHistory}
-                  onChange={(e) => setDaysOfHistory(Math.max(1, Math.min(30, parseInt(e.target.value) || 1)))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Enter days (1-30)"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Simulates data for the last {daysOfHistory} {daysOfHistory === 1 ? "day" : "days"}
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={closeModal}
-                  disabled={actionLoading}
-                  className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSimulateData}
-                  disabled={actionLoading}
-                  className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                >
-                  {actionLoading ? "Generating..." : "Generate"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Details Modal */}
-      {modalOpen && modalType === "details" && selectedDevice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-lg font-semibold text-gray-900">{selectedDevice.name} Details</div>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                ✕
-              </button>
-            </div>
-
-            {actionLoading ? (
-              <div className="py-8 text-center">
-                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-              </div>
-            ) : deviceDetails ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Info label="Device Type" value={String(deviceDetails.device_type || "")} />
-                  <Info label="Status" value={String(deviceDetails.status || "")} />
-                  <Info label="Connected At" value={formatDate(deviceDetails.connected_at)} />
-                  <Info label="Last Updated" value={formatDate(deviceDetails.updated_at)} />
-                </div>
-
-                <div>
-                  <div className="mb-2 text-xs font-medium text-gray-500">Supported Biomarkers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {(deviceDetails.supported_biomarkers || []).map((b) => (
-                      <span
-                        key={b}
-                        className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs ${chipStyle(b)}`}
-                      >
-                        {biomarkerIcon(b)} {formatBiomarkerName(b)}
-                      </span>
-                    ))}
+              {/* Connect modal */}
+              {modalType === "connect" && selDevice && (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-white/25 text-xs uppercase tracking-widest">Connect Device</p>
+                      <p className="text-white font-semibold mt-0.5">{selDevice.name}</p>
+                    </div>
+                    <button onClick={closeModal} className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-white/40 text-lg">×</button>
                   </div>
-                </div>
+                  {step === "oauth" && (
+                    <>
+                      <p className="text-white/40 text-sm">You'll need to authorize Pulse to read data from {selDevice.name}.</p>
+                      <button onClick={() => setStep("pairing")}
+                        className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-sm font-semibold hover:bg-indigo-500/20 transition-colors">
+                        Authorize
+                      </button>
+                    </>
+                  )}
+                  {step === "pairing" && (
+                    <>
+                      <p className="text-white/40 text-sm">Pairing device…</p>
+                      <button onClick={() => setStep("done")} className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-sm font-semibold">Next</button>
+                    </>
+                  )}
+                  {step === "done" && (
+                    <>
+                      <p className="text-white/40 text-sm">Ready to connect. Confirm to finish setup.</p>
+                      <button onClick={handleConnect} disabled={actionLoad}
+                        className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-sm font-semibold disabled:opacity-40">
+                        {actionLoad ? "Connecting…" : "Confirm Connection"}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
 
-                <div className="flex gap-2 pt-3 border-t border-gray-100">
-                  <button
-                    onClick={() => openSimulateModal(selectedDevice, true)}
-                    disabled={actionLoading}
-                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                  >
-                    Simulate Data
-                  </button>
-                  <button
-                    onClick={closeModal}
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 text-center text-sm text-gray-600">No details available</div>
-            )}
-          </div>
-        </div>
-      )}
+              {/* Details modal */}
+              {modalType === "details" && selDevice && (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-white/25 text-xs uppercase tracking-widest">Device Details</p>
+                      <p className="text-white font-semibold mt-0.5">{selDevice.name}</p>
+                    </div>
+                    <button onClick={closeModal} className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-white/40 text-lg">×</button>
+                  </div>
+                  {actionLoad ? (
+                    <div className="flex items-center justify-center py-8 gap-2 text-white/30 text-sm">
+                      <div className="w-5 h-5 rounded-full border-2 border-indigo-400/30 border-t-indigo-400 animate-spin" />
+                      Loading…
+                    </div>
+                  ) : devDetails ? (
+                    <div className="space-y-3 text-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        {[["Type",devDetails.device_type_label || selDevice.typeLabel],["Status",devDetails.status || selDevice.status],["Connected",fmtDate(devDetails.connected_at || selDevice.connectedAt)],["Synced",fmtDate(devDetails.last_sync)]].map(([l,v]) => (
+                          <div key={l} className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+                            <p className="text-white/25 text-xs">{l}</p>
+                            <p className="text-white/65 text-xs font-medium mt-0.5 truncate">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => openSimulate(selDevice, true)}
+                        className="w-full py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium hover:bg-indigo-500/20 transition-colors">
+                        Simulate Data
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
 
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-          <div
-            className={`min-w-[320px] rounded-lg border shadow-lg p-4 ${
-              toast.type === "success"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                : "bg-rose-50 border-rose-200 text-rose-900"
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-xl">
-                {toast.type === "success" ? "✓" : "✕"}
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm">{toast.title}</div>
-                <div className="mt-1 text-xs opacity-90">{toast.message}</div>
-              </div>
-              <button
-                onClick={() => setToast(null)}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
+              {/* Simulate modal */}
+              {modalType === "simulate" && selDevice && (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-white/25 text-xs uppercase tracking-widest">Simulate Data</p>
+                      <p className="text-white font-semibold mt-0.5">{selDevice.name}</p>
+                    </div>
+                    <button onClick={closeModal} className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-white/40 text-lg">×</button>
+                  </div>
+                  <div>
+                    <label className="block text-white/40 text-xs font-semibold uppercase tracking-widest mb-2">Days of History</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[1,3,7,14,30].map((d) => (
+                        <button key={d} onClick={() => setDaysHistory(d)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${daysHistory === d ? "bg-indigo-500/15 border-indigo-500/25 text-indigo-300" : "border-white/[0.07] text-white/35 hover:border-white/20"}`}>
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-white/30 text-xs">This will generate {daysHistory} day{daysHistory !== 1 ? "s" : ""} of synthetic biomarker readings for testing.</p>
+                  <button onClick={handleSimulate} disabled={actionLoad}
+                    className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-sm font-semibold hover:bg-indigo-500/20 transition-colors disabled:opacity-40">
+                    {actionLoad ? "Simulating…" : `Generate ${daysHistory} day${daysHistory !== 1 ? "s" : ""} of data`}
+                  </button>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------------- Small components ---------------- */
-
-function LoadingState() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-        <div className="mt-3 text-sm text-gray-600">Loading devices...</div>
+        )}
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ activeTab, onTabChange }) {
-  if (activeTab === "connected") {
-    return (
-      <div className="text-center py-12">
-        <p className="text-sm text-gray-600">No connected devices.</p>
-        <button
-          onClick={() => onTabChange("available")}
-          className="mt-3 text-sm text-blue-600 hover:text-blue-700 underline"
-        >
-          View available devices
-        </button>
-      </div>
-    );
-  }
-
-  if (activeTab === "available") {
-    return (
-      <div className="text-center py-12">
-        <p className="text-sm text-gray-600">All devices are connected.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="text-center py-12">
-      <p className="text-sm text-gray-600">No devices found.</p>
-    </div>
-  );
-}
-
-function Info({ label, value }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-gray-900">{value || "N/A"}</div>
-    </div>
+    </RoleProtection>
   );
 }

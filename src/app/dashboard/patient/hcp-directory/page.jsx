@@ -4,387 +4,205 @@ import { useState, useEffect, useMemo } from "react";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 import {
-  getProvidersDirectory,
-  sendConnectionToHcp,
-  disconnectFromProvider,
-  getMyConnections, // ← ADD THIS IMPORT
+  getProvidersDirectory, sendConnectionToHcp,
+  disconnectFromProvider, getMyConnections,
 } from "@/services/api_calls";
 
+/* ─── constants ──────────────────────────────────────────────────── */
+const STATUS_CLS = {
+  accepted:    "bg-green-500/10 border-green-500/20 text-green-400",
+  pending:     "bg-amber-500/10 border-amber-500/20 text-amber-400",
+  rejected:    "bg-red-500/10   border-red-500/20   text-red-400",
+  disconnected:"bg-white/[0.05] border-white/[0.08] text-white/25",
+};
+
+const inputCls = "w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white/70 placeholder-white/20 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors";
+
+/* ─── main ───────────────────────────────────────────────────────── */
 export default function HcpDirectory() {
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [specialtyFilter, setSpecialtyFilter] = useState("all");
-  const [experienceFilter, setExperienceFilter] = useState("all");
-  const [allProviders, setAllProviders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [connectingByProviderId, setConnectingByProviderId] = useState({});
-  const [disconnectingByProviderId, setDisconnectingByProviderId] = useState({});
+  const [providers,     setProviders]     = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [search,        setSearch]        = useState("");
+  const [specFilter,    setSpecFilter]    = useState("all");
+  const [statusFilter,  setStatusFilter]  = useState("all");
+  const [connecting,    setConnecting]    = useState({});
+  const [disconnecting, setDisconnecting] = useState({});
 
   useEffect(() => {
-    const fetchProviders = async () => {
+    (async () => {
       try {
-        // 1. Fetch providers
-        let providers = await getProvidersDirectory();
-        console.log("RAW PROVIDER DATA:", providers.providers);
-        
-        // 2. Fetch connections to get the connection IDs
-        let connections = [];
-        try {
-          connections = await getMyConnections();
-          console.log("MY CONNECTIONS:", connections);
-        } catch (error) {
-          console.error("Error fetching connections:", error);
-        }
+        const [dirRes, connRes] = await Promise.allSettled([
+          getProvidersDirectory(),
+          getMyConnections(),
+        ]);
+        const raw   = dirRes.status  === "fulfilled" ? (dirRes.value?.providers  || []) : [];
+        const conns = connRes.status === "fulfilled" ? (connRes.value || [])             : [];
 
-        // 3. Create a map of provider_email → connection data for easy lookup
-        // We use email because provider_id differs between the two APIs
-        const connectionMap = {};
-        connections.forEach((conn) => {
-          console.log("Processing connection:", conn); // Debug log
-          connectionMap[conn.provider_email] = {
-            connection_id: conn.id, // The connection ID
-            status: conn.status,
-          };
-        });
-        console.log("Connection Map (by email):", connectionMap);
+        const connMap = {};
+        conns.forEach((c) => { connMap[c.provider_email] = { connection_id: c.id, status: c.status }; });
 
-        // 4. Merge providers with their connection data using email as the key
-        const normalizedProviders = (providers.providers || []).map((p) => {
-          const connectionData = connectionMap[p.provider_email]; // Match by email!
-          
-          console.log(`Provider ${p.provider_name}:`, {
-            provider_email: p.provider_email,
-            connectionData: connectionData,
-            connection_id: connectionData?.connection_id
-          }); // Debug log
-          
-          // Determine the correct status
-          let status;
-          if (connectionData) {
-            // If we found a connection in the connections API, use its status
-            status = connectionData.status;
-          } else if (p.connection_status === "none" || !p.connection_status) {
-            // If no connection exists, mark as disconnected
-            status = "disconnected";
-          } else {
-            // Otherwise use the provider's existing status
-            status = p.connection_status;
-          }
-          
+        setProviders(raw.map((p) => {
+          const cd = connMap[p.provider_email];
           return {
             ...p,
-            connection_status: status,
-            connection_id: connectionData?.connection_id || null,
+            connection_status: cd?.status || (p.connection_status === "none" ? "disconnected" : p.connection_status || "disconnected"),
+            connection_id:     cd?.connection_id || null,
           };
-        });
-        
-        setAllProviders(normalizedProviders);
-        console.log("Normalized providers:", normalizedProviders);
-      } catch (error) {
-        console.error("Error fetching providers:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProviders();
+        }));
+      } catch (_) {}
+      finally { setLoading(false); }
+    })();
   }, []);
 
-  const connectedProvider = useMemo(
-    () => allProviders.find((p) => p.connection_status === "accepted"),
-    [allProviders]
-  );
-  const hasActiveConnection = !!connectedProvider;
-  const connectedProviderId = connectedProvider?.provider_id;
+  const connected   = useMemo(() => providers.find((p) => p.connection_status === "accepted"), [providers]);
+  const specialties = useMemo(() => {
+    const set = new Set(providers.map((p) => p.specialisation).filter(Boolean));
+    return ["all", ...Array.from(set).sort()];
+  }, [providers]);
 
-  const handleConnect = async (hcp) => {
-    const providerUserId = hcp?.provider_id;
-    if (!providerUserId) return;
+  const filtered = useMemo(() => {
+    return providers.filter((p) => {
+      const matchSearch = !search || [p.provider_name, p.provider_email, p.specialisation, p.about]
+        .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+      const matchSpec   = specFilter   === "all" || p.specialisation === specFilter;
+      const matchStatus = statusFilter === "all" || p.connection_status === statusFilter;
+      return matchSearch && matchSpec && matchStatus;
+    });
+  }, [providers, search, specFilter, statusFilter]);
 
-    if (hasActiveConnection && providerUserId !== connectedProviderId) {
-      alert("You are already connected to a provider. Disconnect first to connect to another.");
+  const handleConnect = async (p) => {
+    if (!p.provider_id) return;
+    if (connected && p.provider_id !== connected.provider_id) {
+      alert("You are already connected to a provider. Disconnect first before connecting to another.");
       return;
     }
-
-    setConnectingByProviderId((prev) => ({ ...prev, [providerUserId]: true }));
+    setConnecting((prev) => ({ ...prev, [p.provider_id]: true }));
     try {
-      const res = await sendConnectionToHcp(providerUserId);
+      const res = await sendConnectionToHcp(p.provider_id);
       const nextStatus = res?.connection?.status || "pending";
-
-      // Get the connection_id from the response
-      const nextConnectionId = res?.connection?.id || null;
-
-      setAllProviders((prev) =>
-        prev.map((p) =>
-          p.provider_id === providerUserId
-            ? {
-                ...p,
-                connection_status: nextStatus,
-                connection_id: nextConnectionId,
-              }
-            : p
-        )
-      );
-
-      if (res?.message) alert(res.message);
-    } catch (e) {
-      alert(e?.message || "Failed to send connection request");
-    } finally {
-      setConnectingByProviderId((prev) => ({ ...prev, [providerUserId]: false }));
-    }
+      const nextId     = res?.connection?.id     || null;
+      setProviders((prev) => prev.map((q) => q.provider_id === p.provider_id ? { ...q, connection_status: nextStatus, connection_id: nextId } : q));
+    } catch (err) { alert(err?.message || "Failed to send request"); }
+    finally { setConnecting((prev) => ({ ...prev, [p.provider_id]: false })); }
   };
 
-  const handleDisconnect = async (hcp) => {
-    const providerUserId = hcp?.provider_id;
-    const connectionId = hcp?.connection_id;
-    
-    console.log("Disconnect clicked for:", { providerUserId, connectionId, hcp });
-    
-    if (!providerUserId) return;
-
-    if (!connectionId) {
-      alert("Missing connection id for this provider. Refresh the page and try again.");
-      return;
-    }
-
-    setDisconnectingByProviderId((prev) => ({ ...prev, [providerUserId]: true }));
+  const handleDisconnect = async (p) => {
+    if (!p.connection_id) return;
+    if (!confirm(`Disconnect from ${p.provider_name}?`)) return;
+    setDisconnecting((prev) => ({ ...prev, [p.provider_id]: true }));
     try {
-      const res = await disconnectFromProvider(connectionId);
-
-      setAllProviders((prev) =>
-        prev.map((p) =>
-          p.provider_id === providerUserId
-            ? {
-                ...p,
-                connection_status: "disconnected",
-                connection_id: null,
-              }
-            : p
-        )
-      );
-
-      if (res?.message) alert(res.message);
-    } catch (e) {
-      alert(e?.message || "Failed to disconnect");
-    } finally {
-      setDisconnectingByProviderId((prev) => ({ ...prev, [providerUserId]: false }));
-    }
+      await disconnectFromProvider(p.connection_id);
+      setProviders((prev) => prev.map((q) => q.provider_id === p.provider_id ? { ...q, connection_status: "disconnected", connection_id: null } : q));
+    } catch (err) { alert(err?.message || "Failed to disconnect"); }
+    finally { setDisconnecting((prev) => ({ ...prev, [p.provider_id]: false })); }
   };
-
-  const specialties = [...new Set(allProviders.map((p) => p.specialisation))].filter(Boolean);
-
-  const filteredHCPs = allProviders.filter((hcp) => {
-    if (activeTab !== "all") {
-      if (activeTab === "none" && hcp.connection_status !== "disconnected") return false;
-      if (activeTab === "approved" && hcp.connection_status !== "accepted") return false;
-      if (activeTab !== "none" && activeTab !== "approved" && hcp.connection_status !== activeTab) return false;
-    }
-
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      const matchesName = hcp.provider_name?.toLowerCase().includes(search);
-      const matchesSpecialty = hcp.specialisation?.toLowerCase().includes(search);
-      if (!matchesName && !matchesSpecialty) return false;
-    }
-
-    if (specialtyFilter !== "all" && hcp.specialisation !== specialtyFilter) return false;
-
-    if (experienceFilter !== "all") {
-      const years = hcp.years_of_experience;
-      if (experienceFilter === "0-5" && years > 5) return false;
-      if (experienceFilter === "6-10" && (years < 6 || years > 10)) return false;
-      if (experienceFilter === "11+" && years < 11) return false;
-    }
-
-    return true;
-  });
-
-  const StatusBadge = ({ status }) => {
-    const statusMap = {
-      accepted: { color: "bg-green-100 text-green-800", label: "Connected" },
-      pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
-      rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
-      disconnected: { color: "bg-gray-100 text-gray-800", label: "Not Connected" },
-      none: { color: "bg-gray-100 text-gray-800", label: "Not Connected" },
-    };
-    const config = statusMap[status] || statusMap.disconnected;
-    return <span className={`px-3 py-1 rounded-full text-sm ${config.color}`}>{config.label}</span>;
-  };
-
-  const ActionButton = ({ hcp }) => {
-    const status = hcp.connection_status;
-    const providerUserId = hcp?.provider_id;
-
-    if (status === "accepted") {
-      const isDisconnecting = !!disconnectingByProviderId[providerUserId];
-      return (
-        <button
-          onClick={() => handleDisconnect(hcp)}
-          disabled={isDisconnecting}
-          className={`font-medium ${
-            isDisconnecting ? "text-gray-400 cursor-not-allowed" : "text-red-600 hover:text-red-800"
-          }`}
-        >
-          {isDisconnecting ? "Disconnecting..." : "Disconnect"}
-        </button>
-      );
-    }
-
-    const isDisconnected = status === "disconnected" || status === "none" || !status;
-    if (isDisconnected) {
-      const isConnecting = !!connectingByProviderId[providerUserId];
-      const isBlockedByExistingConnection = hasActiveConnection && providerUserId !== connectedProviderId;
-
-      const disabled = isConnecting || isBlockedByExistingConnection;
-
-      return (
-        <button
-          onClick={() => handleConnect(hcp)}
-          disabled={disabled}
-          title={
-            isBlockedByExistingConnection
-              ? "Disconnect from your current provider to connect to another."
-              : undefined
-          }
-          className={`font-medium ${
-            disabled ? "text-gray-400 cursor-not-allowed" : "text-blue-600 hover:text-blue-800"
-          }`}
-        >
-          {isConnecting ? "Connecting..." : "Connect"}
-        </button>
-      );
-    }
-
-    if (status === "pending") return <span className="text-gray-500">Request Pending</span>;
-    if (status === "rejected") return <span className="text-red-600 font-medium">Rejected</span>;
-
-    return null;
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">HCP Directory</h1>
-        <p className="text-gray-600 mb-8">Browse all the healthcare providers</p>
+      <div className="max-w-4xl mx-auto pb-10 space-y-6">
 
-        {hasActiveConnection && (
-          <div className="mb-4 p-4 rounded-lg border bg-blue-50 text-blue-900">
-            You are currently connected to <span className="font-semibold">{connectedProvider?.provider_name}</span>.
-            To connect to another provider, disconnect first.
+        {/* Header */}
+        <div>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Find a Provider</h1>
+          <p className="text-white/40 text-sm mt-1">Connect with a healthcare professional to share your health data.</p>
+        </div>
+
+        {/* Connected banner */}
+        {connected && (
+          <div className="rounded-2xl border border-green-500/20 bg-green-500/[0.05] p-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-bold text-sm flex-shrink-0">
+              {(connected.provider_name || "P").charAt(0)}
+            </div>
+            <div className="flex-1">
+              <p className="text-green-400 text-sm font-semibold">{connected.provider_name}</p>
+              <p className="text-white/30 text-xs">{connected.specialisation} · Connected</p>
+            </div>
+            <button onClick={() => handleDisconnect(connected)} disabled={!!disconnecting[connected.provider_id]}
+              className="px-3 py-1.5 rounded-lg text-xs border border-white/[0.08] text-white/30 hover:text-red-400 hover:border-red-500/20 transition-colors disabled:opacity-40">
+              Disconnect
+            </button>
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-              <input
-                type="text"
-                placeholder="Search by name or specialty..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Specialty</label>
-              <select
-                value={specialtyFilter}
-                onChange={(e) => setSpecialtyFilter(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Specialties</option>
-                {specialties.map((specialty) => (
-                  <option key={specialty} value={specialty}>
-                    {specialty}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
-              <select
-                value={experienceFilter}
-                onChange={(e) => setExperienceFilter(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Experience Levels</option>
-                <option value="0-5">0-5 years</option>
-                <option value="6-10">6-10 years</option>
-                <option value="11+">11+ years</option>
-              </select>
-            </div>
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search providers…" className={`${inputCls} max-w-xs`} />
+          <select value={specFilter} onChange={(e) => setSpecFilter(e.target.value)} className={`${inputCls} w-auto appearance-none`}>
+            {specialties.map((s) => <option key={s} value={s} className="bg-[#0d1525]">{s === "all" ? "All Specialties" : s}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${inputCls} w-auto appearance-none`}>
+            <option value="all"         className="bg-[#0d1525]">All Statuses</option>
+            <option value="disconnected" className="bg-[#0d1525]">Available</option>
+            <option value="pending"      className="bg-[#0d1525]">Pending</option>
+            <option value="accepted"     className="bg-[#0d1525]">Connected</option>
+          </select>
+          <span className="text-white/25 text-xs self-center ml-auto">{filtered.length} provider{filtered.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {/* Grid */}
+        {loading ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[...Array(6)].map((_, i) => <div key={i} className="h-36 rounded-2xl bg-white/[0.03] border border-white/[0.05] animate-pulse" />)}
           </div>
-        </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-8 text-center text-white/25 text-sm">
+            No providers match your filters.
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {filtered.map((p) => {
+              const st       = p.connection_status || "disconnected";
+              const isBusy   = !!connecting[p.provider_id] || !!disconnecting[p.provider_id];
+              const isConnected = st === "accepted";
+              const isPending   = st === "pending";
+              return (
+                <div key={p.provider_id || p.provider_email} className={`rounded-2xl border p-5 space-y-3 transition-colors ${isConnected ? "border-green-500/15 bg-green-500/[0.04]" : "border-white/[0.07] bg-white/[0.03]"}`}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/[0.06] flex items-center justify-center text-white/40 font-bold flex-shrink-0">
+                      {(p.provider_name || "P").charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/80 text-sm font-semibold truncate">{p.provider_name || "Provider"}</p>
+                      <p className="text-white/30 text-xs truncate">{p.provider_email}</p>
+                      {p.specialisation && <p className="text-indigo-400 text-xs mt-0.5">{p.specialisation}</p>}
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0 ${STATUS_CLS[st] || STATUS_CLS.disconnected}`}>
+                      {isConnected ? "Connected" : isPending ? "Pending" : st === "rejected" ? "Rejected" : "Available"}
+                    </span>
+                  </div>
 
-        <div className="mb-6 flex gap-2">
-          {[
-            { key: "all", label: `All (${allProviders.length})` },
-            { key: "pending", label: "Pending" },
-            { key: "approved", label: "Connected" },
-            { key: "none", label: "Not Connected" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-6 py-2 rounded-lg font-medium ${
-                activeTab === tab.key ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+                  {p.about && <p className="text-white/35 text-xs leading-relaxed line-clamp-2">{p.about}</p>}
 
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                {["Provider", "Specialty", "Experience", "Connection Status", "Actions"].map((header) => (
-                  <th
-                    key={header}
-                    className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredHCPs.length > 0 ? (
-                filteredHCPs.map((hcp) => (
-                  <tr key={hcp.provider_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium">{hcp.provider_name}</div>
-                      <div className="text-sm text-gray-500">{hcp.provider_email}</div>
-                    </td>
-                    <td className="px-6 py-4">{hcp.specialisation || "N/A"}</td>
-                    <td className="px-6 py-4">{hcp.years_of_experience || 0} years</td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={hcp.connection_status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <ActionButton hcp={hcp} />
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                    No healthcare providers found matching your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  {p.years_of_experience != null && (
+                    <p className="text-white/25 text-xs">{p.years_of_experience} years experience</p>
+                  )}
+
+                  {/* Action button */}
+                  {isConnected ? (
+                    <button onClick={() => handleDisconnect(p)} disabled={isBusy}
+                      className="w-full py-2 rounded-xl text-xs font-semibold border border-red-500/20 bg-red-500/[0.06] text-red-400 hover:bg-red-500/[0.12] transition-colors disabled:opacity-40">
+                      {disconnecting[p.provider_id] ? "Disconnecting…" : "Disconnect"}
+                    </button>
+                  ) : isPending ? (
+                    <button disabled className="w-full py-2 rounded-xl text-xs font-semibold border border-amber-500/20 bg-amber-500/[0.06] text-amber-400 opacity-70 cursor-default">
+                      Request Pending
+                    </button>
+                  ) : st === "rejected" ? (
+                    <button onClick={() => handleConnect(p)} disabled={isBusy}
+                      className="w-full py-2 rounded-xl text-xs font-semibold border border-white/[0.09] bg-white/[0.04] text-white/40 hover:text-white/60 transition-colors disabled:opacity-40">
+                      {connecting[p.provider_id] ? "Sending…" : "Resend Request"}
+                    </button>
+                  ) : (
+                    <button onClick={() => handleConnect(p)} disabled={isBusy}
+                      className="w-full py-2 rounded-xl text-xs font-semibold border border-indigo-500/20 bg-indigo-500/[0.07] text-indigo-300 hover:bg-indigo-500/15 transition-colors disabled:opacity-40">
+                      {connecting[p.provider_id] ? "Sending…" : "Connect"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </RoleProtection>
   );

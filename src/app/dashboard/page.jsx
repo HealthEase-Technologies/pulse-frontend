@@ -27,22 +27,24 @@ export default function DashboardPage() {
     }
   }, [role, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <p className="ml-4 text-gray-600">Redirecting to your dashboard...</p>
-      </div>
-    );
-  }
-
-  // This page should only show briefly while redirecting
   return (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Redirecting...</p>
+    <div className="fixed inset-0 bg-[#070c18] flex flex-col items-center justify-center z-50">
+      {/* Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[200px] pointer-events-none"
+        style={{ background: "radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 70%)", filter: "blur(60px)" }} />
+
+      {/* Logo mark with pulse ring */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 rounded-2xl bg-indigo-500/20 animate-ping" style={{ animationDuration: "1.8s" }} />
+        <div className="relative w-14 h-14 rounded-2xl bg-white/[0.08] border border-white/20 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} className="w-7 h-7">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
       </div>
+
+      <p className="text-white font-semibold text-lg tracking-tight mb-1">Pulse</p>
+      <p className="text-white/30 text-sm">Loading your dashboard…</p>
     </div>
   );
 }

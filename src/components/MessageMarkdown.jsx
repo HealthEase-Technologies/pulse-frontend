@@ -1,8 +1,3 @@
-/**
- * Markdown Renderer for Chat Messages
- * Uses react-markdown for proper markdown rendering
- */
-
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -13,23 +8,18 @@ export default function MessageMarkdown({ content }) {
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        // Headings
         h1: ({ node, ...props }) => (
-          <h1 className="text-xl font-bold mt-4 mb-2 text-gray-900" {...props} />
+          <h1 className="text-base font-bold mt-3 mb-1.5 text-white/85" {...props} />
         ),
         h2: ({ node, ...props }) => (
-          <h2 className="text-lg font-bold mt-3 mb-2 text-gray-900" {...props} />
+          <h2 className="text-sm font-bold mt-3 mb-1 text-white/80" {...props} />
         ),
         h3: ({ node, ...props }) => (
-          <h3 className="text-base font-semibold mt-3 mb-1 text-gray-900" {...props} />
+          <h3 className="text-sm font-semibold mt-2 mb-1 text-white/75" {...props} />
         ),
-
-        // Paragraphs
         p: ({ node, ...props }) => (
-          <p className="mb-2 leading-relaxed" {...props} />
+          <p className="mb-2 leading-relaxed text-white/75" {...props} />
         ),
-
-        // Lists
         ul: ({ node, ...props }) => (
           <ul className="list-disc ml-5 my-2 space-y-1" {...props} />
         ),
@@ -37,34 +27,29 @@ export default function MessageMarkdown({ content }) {
           <ol className="list-decimal ml-5 my-2 space-y-1" {...props} />
         ),
         li: ({ node, ...props }) => (
-          <li className="leading-relaxed" {...props} />
+          <li className="leading-relaxed text-white/70" {...props} />
         ),
-
-        // Text formatting
         strong: ({ node, ...props }) => (
-          <strong className="font-bold text-gray-900" {...props} />
+          <strong className="font-bold text-white/90" {...props} />
         ),
         em: ({ node, ...props }) => (
-          <em className="italic" {...props} />
+          <em className="italic text-white/65" {...props} />
         ),
-
-        // Code
         code: ({ node, inline, ...props }) => (
           inline ? (
-            <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono" {...props} />
+            <code className="bg-white/[0.08] border border-white/[0.1] px-1.5 py-0.5 rounded text-xs font-mono text-indigo-300" {...props} />
           ) : (
-            <code className="block bg-gray-100 p-2 rounded text-sm font-mono my-2 overflow-x-auto" {...props} />
+            <code className="block bg-white/[0.06] border border-white/[0.08] p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto text-white/70" {...props} />
           )
         ),
-
-        // Links
         a: ({ node, ...props }) => (
-          <a className="text-indigo-600 hover:text-indigo-700 underline" {...props} />
+          <a className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2" {...props} />
         ),
-
-        // Blockquotes
         blockquote: ({ node, ...props }) => (
-          <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic text-gray-700" {...props} />
+          <blockquote className="border-l-2 border-indigo-500/40 pl-3 my-2 italic text-white/45" {...props} />
+        ),
+        hr: ({ node, ...props }) => (
+          <hr className="border-white/[0.08] my-3" {...props} />
         ),
       }}
     >

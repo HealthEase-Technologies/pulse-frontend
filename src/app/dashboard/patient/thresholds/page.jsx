@@ -4,366 +4,239 @@ import { useEffect, useState } from "react";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 import {
-  getEffectiveThresholds,
-  getMyThresholds,
-  setMyThreshold,
-  deleteMyThreshold,
-  getBiomarkerRanges,
+  getEffectiveThresholds, getMyThresholds, setMyThreshold,
+  deleteMyThreshold, getBiomarkerRanges,
 } from "@/services/api_calls";
 
-const BIOMARKER_META = {
-  heart_rate: { label: "Heart Rate", unit: "bpm", icon: "H", gradient: "from-rose-50 to-orange-50", border: "border-rose-200", accent: "text-rose-600" },
-  blood_pressure_systolic: { label: "BP Systolic", unit: "mmHg", icon: "S", gradient: "from-indigo-50 to-blue-50", border: "border-indigo-200", accent: "text-indigo-600" },
-  blood_pressure_diastolic: { label: "BP Diastolic", unit: "mmHg", icon: "D", gradient: "from-indigo-50 to-blue-50", border: "border-indigo-200", accent: "text-indigo-600" },
-  glucose: { label: "Glucose", unit: "mg/dL", icon: "G", gradient: "from-amber-50 to-orange-50", border: "border-amber-200", accent: "text-amber-600" },
-  steps: { label: "Steps", unit: "steps", icon: "W", gradient: "from-emerald-50 to-teal-50", border: "border-emerald-200", accent: "text-emerald-600" },
-  sleep: { label: "Sleep", unit: "hours", icon: "Z", gradient: "from-slate-50 to-indigo-50", border: "border-slate-200", accent: "text-slate-600" },
+/* ─── meta ───────────────────────────────────────────────────────── */
+const BIO_META = {
+  heart_rate:               { label: "Heart Rate",   unit: "bpm",   color: "#f87171" },
+  blood_pressure_systolic:  { label: "BP Systolic",  unit: "mmHg",  color: "#fb923c" },
+  blood_pressure_diastolic: { label: "BP Diastolic", unit: "mmHg",  color: "#fbbf24" },
+  glucose:                  { label: "Glucose",      unit: "mg/dL", color: "#34d399" },
+  steps:                    { label: "Steps",        unit: "steps", color: "#60a5fa" },
+  sleep:                    { label: "Sleep",        unit: "hrs",   color: "#a78bfa" },
 };
 
-function ThresholdRangeBar({ warningLow, warningHigh, criticalLow, criticalHigh }) {
-  // Visual range bar showing green/yellow/red zones
-  if (!criticalLow && !criticalHigh && !warningLow && !warningHigh) {
-    return <div className="h-3 bg-gray-100 rounded-full" />;
-  }
+const ORDER = ["heart_rate","blood_pressure_systolic","blood_pressure_diastolic","glucose","steps","sleep"];
 
+const inputCls = "w-full px-2.5 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/70 placeholder-white/20 text-xs focus:outline-none focus:border-indigo-500/50 transition-colors";
+
+/* ─── range bar ──────────────────────────────────────────────────── */
+function RangeBar({ warningLow, warningHigh, criticalLow, criticalHigh }) {
   return (
-    <div className="flex h-3 rounded-full overflow-hidden gap-px">
-      <div className="flex-1 bg-red-400 rounded-l-full" title={`Critical Low: < ${criticalLow ?? "—"}`} />
-      <div className="flex-1 bg-amber-400" title={`Warning Low: < ${warningLow ?? "—"}`} />
-      <div className="flex-[2] bg-emerald-400" title="Normal / Optimal" />
-      <div className="flex-1 bg-amber-400" title={`Warning High: > ${warningHigh ?? "—"}`} />
-      <div className="flex-1 bg-red-400 rounded-r-full" title={`Critical High: > ${criticalHigh ?? "—"}`} />
+    <div className="flex h-2 rounded-full overflow-hidden gap-px" title="Critical / Warning / Normal / Warning / Critical">
+      <div className="flex-1 bg-red-500/40 rounded-l-full" />
+      <div className="flex-1 bg-amber-500/40" />
+      <div className="flex-[2] bg-green-500/40" />
+      <div className="flex-1 bg-amber-500/40" />
+      <div className="flex-1 bg-red-500/40 rounded-r-full" />
     </div>
   );
 }
 
+/* ─── main ───────────────────────────────────────────────────────── */
 export default function ThresholdsPage() {
-  const [effective, setEffective] = useState([]);
-  const [customThresholds, setCustomThresholds] = useState([]);
+  const [effective,   setEffective]   = useState([]);
+  const [custom,      setCustom]      = useState([]);
   const [globalRanges, setGlobalRanges] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(null);
-  const [editMode, setEditMode] = useState({}); // {biomarker_type: {warning_low, ...}}
-  const [toast, setToast] = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(null);
+  const [editMode,    setEditMode]    = useState({});
+  const [toast,       setToast]       = useState(null);
 
-  function showToast(type, message) {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
-  }
+  const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); };
 
-  async function loadData() {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [eff, custom, ranges] = await Promise.all([
+      const [eff, cust, ranges] = await Promise.allSettled([
         getEffectiveThresholds(),
         getMyThresholds(),
         getBiomarkerRanges(),
       ]);
-      setEffective(eff);
-      setCustomThresholds(custom);
-      setGlobalRanges(ranges);
-    } catch (e) {
-      console.error("Failed to load thresholds:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
+      if (eff.status     === "fulfilled") setEffective(Array.isArray(eff.value)     ? eff.value     : []);
+      if (cust.status    === "fulfilled") setCustom(Array.isArray(cust.value)       ? cust.value    : []);
+      if (ranges.status  === "fulfilled") setGlobalRanges(Array.isArray(ranges.value) ? ranges.value : []);
+    } catch (_) {}
+    finally { setLoading(false); }
+  };
 
   useEffect(() => { loadData(); }, []);
 
-  function getCustomForType(bt) {
-    return customThresholds.find(
-      (t) => t.biomarker_type === bt && t.set_by_role === "patient"
-    );
-  }
+  const getEff  = (bt) => effective.find((t) => t.biomarker_type === bt) || {};
+  const getCust = (bt) => custom.find((t) => t.biomarker_type === bt && t.set_by_role === "patient");
+  const getGlob = (bt) => globalRanges.find((r) => r.biomarker_type === bt) || {};
 
-  function getProviderForType(bt) {
-    return customThresholds.find(
-      (t) => t.biomarker_type === bt && t.set_by_role === "provider"
-    );
-  }
+  const startEdit = (bt) => {
+    const eff = getEff(bt);
+    setEditMode((p) => ({ ...p, [bt]: {
+      warning_low:   eff.warning_low  ?? "",
+      warning_high:  eff.warning_high ?? "",
+      critical_low:  eff.critical_low ?? "",
+      critical_high: eff.critical_high ?? "",
+    }}));
+  };
 
-  function getEffectiveForType(bt) {
-    return effective.find((t) => t.biomarker_type === bt) || {};
-  }
+  const cancelEdit = (bt) => setEditMode((p) => { const n = { ...p }; delete n[bt]; return n; });
+  const updateField = (bt, field, val) => setEditMode((p) => ({ ...p, [bt]: { ...p[bt], [field]: val } }));
 
-  function getGlobalForType(bt) {
-    return globalRanges.find((r) => r.biomarker_type === bt) || {};
-  }
-
-  function startEdit(bt) {
-    const eff = getEffectiveForType(bt);
-    setEditMode((prev) => ({
-      ...prev,
-      [bt]: {
-        warning_low: eff.warning_low ?? "",
-        warning_high: eff.warning_high ?? "",
-        critical_low: eff.critical_low ?? "",
-        critical_high: eff.critical_high ?? "",
-      },
-    }));
-  }
-
-  function cancelEdit(bt) {
-    setEditMode((prev) => {
-      const next = { ...prev };
-      delete next[bt];
-      return next;
-    });
-  }
-
-  function updateEditField(bt, field, value) {
-    setEditMode((prev) => ({
-      ...prev,
-      [bt]: { ...prev[bt], [field]: value },
-    }));
-  }
-
-  async function handleSave(bt) {
-    const values = editMode[bt];
-    if (!values) return;
-
+  const handleSave = async (bt) => {
+    const vals = editMode[bt];
+    if (!vals) return;
     setSaving(bt);
     try {
       await setMyThreshold({
         biomarker_type: bt,
-        warning_low: values.warning_low === "" ? null : Number(values.warning_low),
-        warning_high: values.warning_high === "" ? null : Number(values.warning_high),
-        critical_low: values.critical_low === "" ? null : Number(values.critical_low),
-        critical_high: values.critical_high === "" ? null : Number(values.critical_high),
+        warning_low:   vals.warning_low   === "" ? null : Number(vals.warning_low),
+        warning_high:  vals.warning_high  === "" ? null : Number(vals.warning_high),
+        critical_low:  vals.critical_low  === "" ? null : Number(vals.critical_low),
+        critical_high: vals.critical_high === "" ? null : Number(vals.critical_high),
       });
-      showToast("success", `${BIOMARKER_META[bt]?.label} thresholds saved`);
+      showToast("success", `${BIO_META[bt]?.label} thresholds saved.`);
       cancelEdit(bt);
       await loadData();
-    } catch (e) {
-      showToast("error", e.message || "Failed to save");
-    } finally {
-      setSaving(null);
-    }
-  }
+    } catch (err) { showToast("error", err.message || "Failed to save"); }
+    finally { setSaving(null); }
+  };
 
-  async function handleReset(bt) {
-    const custom = getCustomForType(bt);
-    if (!custom) return;
-
+  const handleReset = async (bt) => {
+    const c = getCust(bt);
+    if (!c) return;
     setSaving(bt);
     try {
-      await deleteMyThreshold(custom.id);
-      showToast("success", `${BIOMARKER_META[bt]?.label} reset to default`);
+      await deleteMyThreshold(c.id);
+      showToast("success", `${BIO_META[bt]?.label} reset to default.`);
       cancelEdit(bt);
       await loadData();
-    } catch (e) {
-      showToast("error", e.message || "Failed to reset");
-    } finally {
-      setSaving(null);
-    }
-  }
+    } catch (err) { showToast("error", err.message || "Failed to reset"); }
+    finally { setSaving(null); }
+  };
 
-  if (loading) {
-    return (
-      <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
-        <div className="max-w-5xl mx-auto p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/3" />
-            <div className="grid md:grid-cols-2 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-48 bg-gray-100 rounded-xl" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </RoleProtection>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-10 h-10 rounded-full border-2 border-indigo-400/30 border-t-indigo-400 animate-spin" />
+    </div>
+  );
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto pb-10 space-y-6">
+
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Health Thresholds</h1>
-          <p className="text-gray-600 text-sm mt-1">
-            Customize your warning and critical thresholds for each biomarker. Provider-set thresholds take priority.
-          </p>
+        <div>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Alert Thresholds</h1>
+          <p className="text-white/40 text-sm mt-1">Customize when you receive alerts for each biomarker.</p>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 mb-6 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-red-400" />
-            <span className="text-gray-600">Critical</span>
+        {/* Toast */}
+        {toast && (
+          <div className={`px-4 py-3 rounded-xl text-sm border ${toast.type === "success" ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+            {toast.msg}
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-amber-400" />
-            <span className="text-gray-600">Warning</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-emerald-400" />
-            <span className="text-gray-600">Normal</span>
-          </div>
-        </div>
+        )}
 
-        {/* Biomarker Cards Grid */}
-        <div className="grid md:grid-cols-2 gap-4">
-          {Object.entries(BIOMARKER_META).map(([bt, meta]) => {
-            const eff = getEffectiveForType(bt);
-            const providerSet = getProviderForType(bt);
-            const patientSet = getCustomForType(bt);
-            const global = getGlobalForType(bt);
-            const isEditing = bt in editMode;
+        <div className="grid sm:grid-cols-2 gap-4">
+          {ORDER.map((bt) => {
+            const meta   = BIO_META[bt] || { label: bt, unit: "", color: "#818cf8" };
+            const eff    = getEff(bt);
+            const cust   = getCust(bt);
+            const glob   = getGlob(bt);
+            const isEdit = !!editMode[bt];
             const isSaving = saving === bt;
 
-            const sourceLabel =
-              eff.source === "provider"
-                ? "Set by Provider"
-                : eff.source === "patient"
-                ? "Set by You"
-                : "Default";
-
-            const sourceBadge =
-              eff.source === "provider"
-                ? "bg-purple-100 text-purple-700"
-                : eff.source === "patient"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600";
-
             return (
-              <div
-                key={bt}
-                className={`bg-gradient-to-br ${meta.gradient} rounded-xl border ${meta.border} p-5`}
-              >
-                {/* Card Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-lg bg-white/70 flex items-center justify-center font-bold ${meta.accent}`}>
-                      {meta.icon}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{meta.label}</h3>
-                      <span className="text-xs text-gray-500">{meta.unit}</span>
-                    </div>
+              <div key={bt} className={`rounded-2xl border p-5 space-y-4 transition-colors ${isEdit ? "border-indigo-500/20 bg-indigo-500/[0.04]" : "border-white/[0.07] bg-white/[0.03]"}`}>
+
+                {/* Card header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: meta.color }}>{meta.label}</p>
+                    <p className="text-white/30 text-xs mt-0.5">{meta.unit}</p>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${sourceBadge}`}>
-                    {eff.source === "provider" && (
-                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
+                  <div className="flex gap-1.5">
+                    {cust && !isEdit && (
+                      <button onClick={() => handleReset(bt)} disabled={isSaving}
+                        className="px-2.5 py-1 rounded-lg text-white/25 hover:text-red-400 text-xs border border-white/[0.07] hover:border-red-500/20 transition-colors disabled:opacity-40">
+                        Reset
+                      </button>
                     )}
-                    {sourceLabel}
-                  </span>
+                    {isEdit ? (
+                      <>
+                        <button onClick={() => handleSave(bt)} disabled={isSaving}
+                          className="px-3 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-xs font-semibold disabled:opacity-40">
+                          {isSaving ? "Saving…" : "Save"}
+                        </button>
+                        <button onClick={() => cancelEdit(bt)}
+                          className="px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.07] text-white/40 text-xs">
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => startEdit(bt)}
+                        className="px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.07] text-white/40 text-xs hover:text-white/60 transition-colors">
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Range Bar */}
-                <ThresholdRangeBar
-                  warningLow={eff.warning_low}
-                  warningHigh={eff.warning_high}
-                  criticalLow={eff.critical_low}
-                  criticalHigh={eff.critical_high}
-                />
+                {/* Range bar */}
+                <RangeBar {...eff} />
 
-                {/* Current Values */}
-                {!isEditing ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-white/60 rounded p-2">
-                      <span className="text-gray-500">Critical Low</span>
-                      <p className="font-semibold text-red-600">{eff.critical_low ?? "—"}</p>
-                    </div>
-                    <div className="bg-white/60 rounded p-2">
-                      <span className="text-gray-500">Warning Low</span>
-                      <p className="font-semibold text-amber-600">{eff.warning_low ?? "—"}</p>
-                    </div>
-                    <div className="bg-white/60 rounded p-2">
-                      <span className="text-gray-500">Warning High</span>
-                      <p className="font-semibold text-amber-600">{eff.warning_high ?? "—"}</p>
-                    </div>
-                    <div className="bg-white/60 rounded p-2">
-                      <span className="text-gray-500">Critical High</span>
-                      <p className="font-semibold text-red-600">{eff.critical_high ?? "—"}</p>
-                    </div>
-                  </div>
-                ) : (
-                  /* Edit Mode */
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    {["critical_low", "warning_low", "warning_high", "critical_high"].map((field) => (
-                      <div key={field} className="bg-white/80 rounded p-2">
-                        <label className="text-gray-500 capitalize">{field.replace("_", " ")}</label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={editMode[bt][field]}
-                          onChange={(e) => updateEditField(bt, field, e.target.value)}
-                          className="w-full mt-1 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          placeholder={global[field] ?? "—"}
-                        />
+                {/* Source badge */}
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${cust ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400" : "bg-white/[0.05] border-white/[0.08] text-white/30"}`}>
+                    {cust ? "Custom" : "Default"}
+                  </span>
+                  {glob.normal_min != null && (
+                    <span className="text-white/20 text-xs">Default normal: {glob.normal_min}–{glob.normal_max} {meta.unit}</span>
+                  )}
+                </div>
+
+                {/* Current values */}
+                {!isEdit && (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {[
+                      { label: "Warn Low",   val: eff.warning_low,   cls: "text-amber-400" },
+                      { label: "Warn High",  val: eff.warning_high,  cls: "text-amber-400" },
+                      { label: "Crit Low",   val: eff.critical_low,  cls: "text-red-400"   },
+                      { label: "Crit High",  val: eff.critical_high, cls: "text-red-400"   },
+                    ].map((item) => (
+                      <div key={item.label} className="flex justify-between px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                        <span className="text-white/30">{item.label}</span>
+                        <span className={item.val != null ? item.cls : "text-white/20"}>{item.val ?? "—"}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 mt-3">
-                  {eff.source === "provider" && !isEditing ? (
-                    <p className="text-xs text-purple-600 italic">
-                      Provider-set thresholds cannot be edited
-                    </p>
-                  ) : !isEditing ? (
-                    <>
-                      <button
-                        onClick={() => startEdit(bt)}
-                        className="text-xs px-3 py-1.5 bg-white/70 hover:bg-white border border-gray-200 rounded-lg text-gray-700 font-medium transition-colors"
-                      >
-                        Customize
-                      </button>
-                      {patientSet && (
-                        <button
-                          onClick={() => handleReset(bt)}
-                          disabled={isSaving}
-                          className="text-xs px-3 py-1.5 text-gray-500 hover:text-red-600 transition-colors"
-                        >
-                          Reset to Default
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => handleSave(bt)}
-                        disabled={isSaving}
-                        className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                      >
-                        {isSaving ? "Saving..." : "Save"}
-                      </button>
-                      <button
-                        onClick={() => cancelEdit(bt)}
-                        className="text-xs px-3 py-1.5 text-gray-500 hover:text-gray-700 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                </div>
+                {/* Edit form */}
+                {isEdit && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { field: "warning_low",   label: "Warning Low"   },
+                      { field: "warning_high",  label: "Warning High"  },
+                      { field: "critical_low",  label: "Critical Low"  },
+                      { field: "critical_high", label: "Critical High" },
+                    ].map(({ field, label }) => (
+                      <div key={field}>
+                        <label className="block text-white/30 text-xs mb-1">{label}</label>
+                        <input
+                          type="number" step="any"
+                          value={editMode[bt][field]}
+                          onChange={(e) => updateField(bt, field, e.target.value)}
+                          placeholder="—"
+                          className={inputCls}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-
-        {/* Toast */}
-        {toast && (
-          <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-            <div
-              className={`min-w-[300px] rounded-lg border shadow-lg p-4 ${
-                toast.type === "success"
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                  : "bg-rose-50 border-rose-200 text-rose-900"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{toast.type === "success" ? "✓" : "✕"}</span>
-                <span className="text-sm font-medium">{toast.message}</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </RoleProtection>
   );

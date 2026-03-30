@@ -5,86 +5,66 @@ import { getCurrentUser } from "@/services/api_calls";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 
+const Field = ({ label, value }) => (
+  <div>
+    <p className="text-white/30 text-xs font-semibold uppercase tracking-widest mb-1">{label}</p>
+    <p className="text-white/80 text-sm">{value || "—"}</p>
+  </div>
+);
+
+const Skeleton = () => (
+  <div className="animate-pulse space-y-6">
+    {[...Array(5)].map((_, i) => (
+      <div key={i}>
+        <div className="h-3 w-20 bg-white/[0.06] rounded mb-2" />
+        <div className="h-4 w-48 bg-white/[0.06] rounded" />
+      </div>
+    ))}
+  </div>
+);
+
 export default function ProviderProfile() {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUserInfo();
+    getCurrentUser()
+      .then(setUserInfo)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
-
-  const loadUserInfo = async () => {
-    try {
-      const user = await getCurrentUser();
-      setUserInfo(user);
-    } catch (err) {
-      console.error("Failed to load user info:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PROVIDER]}>
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile</h1>
+      <div className="max-w-2xl mx-auto">
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
-          </div>
-
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <p className="text-gray-900">{userInfo?.full_name}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <p className="text-gray-900">{userInfo?.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <p className="text-gray-900">{userInfo?.username}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Role
-                </label>
-                <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                  Provider
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Member Since
-                </label>
-                <p className="text-gray-900">
-                  {userInfo?.created_at ? new Date(userInfo.created_at).toLocaleDateString() : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* Header */}
+        <div className="mb-8">
+          <p className="text-white/30 text-xs font-semibold uppercase tracking-widest mb-1">Provider</p>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">My Profile</h1>
+          <p className="text-white/40 text-sm mt-1">Your account details.</p>
         </div>
+
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/[0.07]">
+            <p className="text-white text-sm font-semibold">Personal Information</p>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/10 border border-green-500/20 text-green-400">
+              Provider
+            </span>
+          </div>
+
+          {loading ? (
+            <Skeleton />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <Field label="Full Name"    value={userInfo?.full_name} />
+              <Field label="Email"        value={userInfo?.email} />
+              <Field label="Username"     value={userInfo?.username} />
+              <Field label="Member Since" value={userInfo?.created_at ? new Date(userInfo.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null} />
+            </div>
+          )}
+        </div>
+
       </div>
     </RoleProtection>
   );
