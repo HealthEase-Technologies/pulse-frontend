@@ -2,30 +2,31 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import {
   generateReport, listReports, downloadReportPdf, downloadReportCsv, getReportPreview,
 } from "@/services/api_calls";
+import RoleProtection from "@/components/RoleProtection";
+import { USER_ROLES } from "@/hooks/useUserRole";
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
+/* ─── constants ──────────────────────────────────────────────────── */
 const REPORT_TYPES = [
-  { value: "weekly",    label: "Weekly",    days: 7  },
-  { value: "monthly",   label: "Monthly",   days: 30 },
-  { value: "quarterly", label: "Quarterly", days: 90 },
+  { value: "weekly",    label: "Weekly",    days: 7   },
+  { value: "monthly",   label: "Monthly",   days: 30  },
+  { value: "quarterly", label: "Quarterly", days: 90  },
   { value: "annual",    label: "Annual",    days: 365 },
   { value: "custom",    label: "Custom",    days: null },
 ];
 
-const BIOMARKER_OPTIONS = [
-  { value: "heart_rate",               label: "Heart Rate",               unit: "bpm"   },
-  { value: "blood_pressure_systolic",  label: "BP Systolic",              unit: "mmHg"  },
-  { value: "blood_pressure_diastolic", label: "BP Diastolic",             unit: "mmHg"  },
-  { value: "glucose",                  label: "Blood Glucose",            unit: "mg/dL" },
-  { value: "steps",                    label: "Daily Steps",              unit: "steps" },
-  { value: "sleep",                    label: "Sleep",                    unit: "hrs"   },
+const BIO_OPTIONS = [
+  { value: "heart_rate",               label: "Heart Rate",    unit: "bpm",   color: "#f87171" },
+  { value: "blood_pressure_systolic",  label: "BP Systolic",   unit: "mmHg",  color: "#fb923c" },
+  { value: "blood_pressure_diastolic", label: "BP Diastolic",  unit: "mmHg",  color: "#fbbf24" },
+  { value: "glucose",                  label: "Blood Glucose", unit: "mg/dL", color: "#34d399" },
+  { value: "steps",                    label: "Daily Steps",   unit: "steps", color: "#60a5fa" },
+  { value: "sleep",                    label: "Sleep",         unit: "hrs",   color: "#a78bfa" },
 ];
 
 const NORMALS = {
@@ -37,567 +38,585 @@ const NORMALS = {
   sleep:                    { min: 7,    max: 9,     unit: "hrs"   },
 };
 
-const STATUS_COLORS = {
-  normal:     { bg: "bg-green-100",  text: "text-green-700",  dot: "bg-green-500"  },
-  borderline: { bg: "bg-amber-100",  text: "text-amber-700",  dot: "bg-amber-500"  },
-  abnormal:   { bg: "bg-red-100",    text: "text-red-700",    dot: "bg-red-500"    },
-  no_data:    { bg: "bg-gray-100",   text: "text-gray-500",   dot: "bg-gray-400"   },
+const STATUS_CLS = {
+  ready:      "bg-green-500/10 border-green-500/20 text-green-400",
+  generating: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400 animate-pulse",
+  pending:    "bg-amber-500/10 border-amber-500/20 text-amber-400",
+  failed:     "bg-red-500/10   border-red-500/20   text-red-400",
 };
 
-const TREND_LABELS = {
-  improving:        { icon: "↑", color: "text-green-600" },
-  declining:        { icon: "↓", color: "text-red-600"   },
-  stable:           { icon: "→", color: "text-blue-600"  },
-  insufficient_data:{ icon: "–", color: "text-gray-400"  },
+const TREND_CLS = {
+  improving:         "text-green-400",
+  declining:         "text-red-400",
+  stable:            "text-indigo-400",
+  insufficient_data: "text-white/25",
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const TREND_ICON = {
+  improving: "↑", declining: "↓", stable: "→", insufficient_data: "–",
+};
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-function daysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
+/* ─── helpers ────────────────────────────────────────────────────── */
+const todayStr  = () => new Date().toISOString().slice(0, 10);
+const daysAgo   = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+const fmtDate   = (ts) => { const d = new Date(ts); return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" }); };
+const fmtTs     = (ts) => { const d = new Date(ts); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit" }); };
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function StatusBadge({ status }) {
-  const c = STATUS_COLORS[status] || STATUS_COLORS.no_data;
+/* ─── tooltip ────────────────────────────────────────────────────── */
+function DarkTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-      {status?.replace("_", " ")}
-    </span>
-  );
-}
-
-function TrendIcon({ trend }) {
-  const t = TREND_LABELS[trend] || TREND_LABELS.insufficient_data;
-  return <span className={`font-bold ${t.color}`}>{t.icon} {trend?.replace("_", " ")}</span>;
-}
-
-function ScoreCard({ label, value, unit, colorClass }) {
-  return (
-    <div className={`rounded-xl p-4 border ${colorClass} flex flex-col gap-1`}>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
-      {value != null
-        ? <p className="text-3xl font-black text-gray-900">{typeof value === "number" ? value.toFixed(1) : value}<span className="text-sm font-normal text-gray-400 ml-1">{unit}</span></p>
-        : <p className="text-2xl font-bold text-gray-400">—</p>
-      }
-    </div>
-  );
-}
-
-function BiomarkerCard({ stat }) {
-  const pct = stat.days_total > 0 ? Math.round((stat.days_in_normal / stat.days_total) * 100) : 0;
-  return (
-    <div className="border border-gray-200 rounded-xl p-4 bg-white">
-      <div className="flex items-center justify-between mb-3">
-        <p className="font-semibold text-gray-800 text-sm">
-          {BIOMARKER_OPTIONS.find(b => b.value === stat.biomarker_type)?.label || stat.biomarker_type}
+    <div className="bg-[#0a0f1e] border border-white/[0.12] rounded-lg px-3 py-2 text-xs shadow-xl">
+      <p className="text-white/40 mb-1">{fmtDate(label)} {fmtTs(label)}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color || p.stroke }} className="font-semibold">
+          {p.name}: {p.value?.toFixed?.(1) ?? p.value} {p.unit || ""}
         </p>
-        <StatusBadge status={stat.status} />
-      </div>
-
-      {stat.status === "no_data" ? (
-        <p className="text-xs text-gray-400">No readings logged for this period.</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-4 gap-2 mb-3">
-            {[["Avg", stat.avg], ["Min", stat.min], ["Max", stat.max], ["Latest", stat.latest]].map(([lbl, val]) => (
-              <div key={lbl} className="text-center bg-gray-50 rounded-lg py-2">
-                <p className="text-[10px] text-gray-400 uppercase font-semibold">{lbl}</p>
-                <p className="text-sm font-bold text-gray-800">{val ?? "—"}</p>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-500 w-14">Normal</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-              <div className="h-1.5 bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
-            </div>
-            <span className="text-xs text-gray-500">{pct}%</span>
-          </div>
-          <p className="text-xs text-gray-500">
-            Trend: <TrendIcon trend={stat.trend} />
-          </p>
-        </>
-      )}
+      ))}
     </div>
   );
 }
 
-function ReportRow({ report, onDownloadPdf, onDownloadCsv }) {
-  const statusColor = {
-    ready:      "bg-green-100 text-green-700",
-    generating: "bg-blue-100 text-blue-700 animate-pulse",
-    pending:    "bg-yellow-100 text-yellow-700",
-    failed:     "bg-red-100 text-red-700",
-  }[report.status] || "bg-gray-100 text-gray-600";
-
-  return (
-    <div className="flex items-center justify-between p-4 border border-gray-100 rounded-xl bg-white hover:bg-gray-50 transition">
-      <div className="flex flex-col gap-0.5">
-        <span className="font-semibold text-gray-800 capitalize text-sm">
-          {report.report_type} Report
-        </span>
-        <span className="text-xs text-gray-400">
-          {report.date_from} → {report.date_to}
-        </span>
-        {report.summary?.total_readings != null && (
-          <span className="text-xs text-gray-400">{report.summary.total_readings} readings</span>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor}`}>
-          {report.status}
-        </span>
-        {report.status === "ready" && (
-          <>
-            <button
-              onClick={() => onDownloadPdf(report.id)}
-              className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-semibold transition"
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
-              PDF
-            </button>
-            <button
-              onClick={() => onDownloadCsv(report.id)}
-              className="flex items-center gap-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg font-semibold transition"
-            >
-              CSV
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
+/* ─── main ───────────────────────────────────────────────────────── */
 export default function PatientReportsPage() {
-  // Generator state
-  const [reportType, setReportType]         = useState("monthly");
-  const [dateFrom,   setDateFrom]           = useState(daysAgo(30));
-  const [dateTo,     setDateTo]             = useState(today());
-  const [selectedBio, setSelectedBio]       = useState([]);
-  const [generating,  setGenerating]        = useState(false);
-  const [genError,    setGenError]          = useState("");
+  const [tab, setTab] = useState("generate"); // generate | preview | history
 
-  // Reports list
-  const [reports,   setReports]             = useState([]);
-  const [loadingList, setLoadingList]       = useState(true);
+  /* generate form */
+  const [repType,  setRepType]  = useState("monthly");
+  const [dateFrom, setDateFrom] = useState(daysAgo(30));
+  const [dateTo,   setDateTo]   = useState(todayStr());
+  const [bios,     setBios]     = useState(BIO_OPTIONS.map((b) => b.value));
+  const [generating, setGenerating] = useState(false);
+  const [genError,   setGenError]   = useState("");
+  const [genSuccess, setGenSuccess] = useState("");
 
-  // Preview
-  const [preview,     setPreview]           = useState(null);
-  const [loadingPrev, setLoadingPrev]       = useState(false);
-  const [prevError,   setPrevError]         = useState("");
-  const [activeTab,   setActiveTab]         = useState("generate"); // generate | preview | history
+  /* preview */
+  const [preview,     setPreview]     = useState(null);
+  const [prevLoading, setPrevLoading] = useState(false);
+  const [prevError,   setPrevError]   = useState("");
+  const [activeBio,   setActiveBio]   = useState(null);
 
-  // ── Date auto-fill when type changes ──────────────────────────────────────
+  /* history */
+  const [reports,      setReports]      = useState([]);
+  const [histLoading,  setHistLoading]  = useState(true);
+  const [downloading,  setDownloading]  = useState(null);
+  const [pollTimeout,  setPollTimeout]  = useState(null);
+
+  /* load history on mount + tab switch */
   useEffect(() => {
-    const t = REPORT_TYPES.find(r => r.value === reportType);
-    if (t?.days) {
-      setDateFrom(daysAgo(t.days));
-      setDateTo(today());
-    }
-  }, [reportType]);
+    if (tab === "history") loadHistory();
+  }, [tab]);
 
-  // ── Load reports list ──────────────────────────────────────────────────────
-  const loadReports = useCallback(async () => {
-    setLoadingList(true);
+  useEffect(() => { loadHistory(); }, []);
+
+  /* auto-update date range when type changes */
+  useEffect(() => {
+    const t = REPORT_TYPES.find((r) => r.value === repType);
+    if (t?.days) { setDateFrom(daysAgo(t.days)); setDateTo(todayStr()); }
+  }, [repType]);
+
+  const loadHistory = useCallback(async () => {
+    setHistLoading(true);
     try {
-      const res = await listReports({ limit: 50 });
-      setReports(res.reports || []);
-    } catch { setReports([]); }
-    finally   { setLoadingList(false); }
+      const data  = await listReports();
+      const list  = Array.isArray(data) ? data : data?.reports || [];
+      setReports(list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
+    } catch (_) {}
+    finally { setHistLoading(false); }
   }, []);
 
-  useEffect(() => { loadReports(); }, [loadReports]);
+  const toggleBio = (v) => setBios((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
 
-  // ── Poll pending/generating reports ───────────────────────────────────────
-  useEffect(() => {
-    const needsPoll = reports.some(r => r.status === "pending" || r.status === "generating");
-    if (!needsPoll) return;
-    const timer = setTimeout(loadReports, 5000);
-    return () => clearTimeout(timer);
-  }, [reports, loadReports]);
-
-  // ── Generate ──────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
-    setGenError("");
-    setGenerating(true);
+    if (!bios.length) { setGenError("Select at least one biomarker."); return; }
+    setGenerating(true); setGenError(""); setGenSuccess("");
     try {
-      await generateReport({
-        report_type:     reportType,
-        date_from:       dateFrom,
-        date_to:         dateTo,
-        biomarker_types: selectedBio.length ? selectedBio : null,
-      });
-      await loadReports();
-      setActiveTab("history");
-    } catch (e) {
-      setGenError(e.message);
-    } finally {
-      setGenerating(false);
-    }
+      await generateReport({ report_type: repType, date_from: dateFrom, date_to: dateTo, biomarkers: bios });
+      setGenSuccess("Report queued! Check History tab.");
+      await loadHistory();
+      setTab("history");
+    } catch (err) { setGenError(err?.message || "Failed to generate report"); }
+    finally { setGenerating(false); }
   };
 
-  // ── Preview ───────────────────────────────────────────────────────────────
-  const handlePreview = async () => {
-    setPrevError("");
-    setLoadingPrev(true);
+  const loadPreview = async () => {
+    if (!bios.length) { setPrevError("Select biomarkers first."); return; }
+    setPrevLoading(true); setPrevError(""); setPreview(null);
     try {
-      const data = await getReportPreview({
-        dateFrom,
-        dateTo,
-        biomarkerTypes: selectedBio.length ? selectedBio : null,
-      });
+      const data = await getReportPreview({ dateFrom, dateTo, biomarkerTypes: bios });
       setPreview(data);
-      setActiveTab("preview");
-    } catch (e) {
-      setPrevError(e.message);
-    } finally {
-      setLoadingPrev(false);
-    }
+      if (data?.stats?.length) setActiveBio(data.stats[0].biomarker_type);
+    } catch (err) { setPrevError(err?.message || "Failed to load preview"); }
+    finally { setPrevLoading(false); }
   };
 
-  // ── Toggle biomarker selection ────────────────────────────────────────────
-  const toggleBio = (val) => {
-    setSelectedBio(prev =>
-      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
-    );
+  const handleDlPdf = async (id) => {
+    setDownloading(id + "-pdf");
+    try { await downloadReportPdf(id); } catch (_) {}
+    finally { setDownloading(null); }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+  const handleDlCsv = async (id) => {
+    setDownloading(id + "-csv");
+    try { await downloadReportCsv(id); } catch (_) {}
+    finally { setDownloading(null); }
+  };
 
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-black text-gray-900">Health Reports</h1>
-        <p className="text-sm text-gray-500 mt-1">Generate professional PDF reports with charts and actionable insights</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-        {[
-          { key: "generate", label: "Generate" },
-          { key: "preview",  label: "Preview"  },
-          { key: "history",  label: `History (${reports.length})` },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === t.key
-                ? "bg-white text-blue-600 shadow"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Generate Tab ────────────────────────────────────────────────────── */}
-      {activeTab === "generate" && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
-
-          {/* Report type */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Report Type</label>
-            <div className="flex flex-wrap gap-2">
-              {REPORT_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  onClick={() => setReportType(t.value)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all ${
-                    reportType === t.value
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-blue-400"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Date range */}
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                max={dateTo}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                min={dateFrom}
-                max={today()}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Biomarker filter */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Biomarkers <span className="text-gray-400 font-normal">(optional — all selected by default)</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {BIOMARKER_OPTIONS.map(b => (
-                <button
-                  key={b.value}
-                  onClick={() => toggleBio(b.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                    selectedBio.includes(b.value)
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
-                  }`}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {genError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{genError}</p>}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={handlePreview}
-              disabled={loadingPrev}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-blue-300 text-blue-600 text-sm font-semibold hover:bg-blue-50 transition disabled:opacity-50"
-            >
-              {loadingPrev ? "Loading..." : "Preview in App"}
+  /* shared biomarker + date form */
+  const SharedForm = () => (
+    <div className="space-y-4">
+      {/* Report type */}
+      <div>
+        <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-2">Report Type</p>
+        <div className="flex flex-wrap gap-2">
+          {REPORT_TYPES.map((t) => (
+            <button key={t.value} onClick={() => setRepType(t.value)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${repType === t.value ? "bg-indigo-500/15 border-indigo-500/25 text-indigo-300" : "border-white/[0.07] text-white/40 hover:text-white/60"}`}>
+              {t.label}
             </button>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md transition disabled:opacity-50"
-            >
-              {generating ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586L7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd"/></svg>
-                  Generate PDF Report
-                </>
-              )}
-            </button>
-          </div>
-
-          <p className="text-xs text-gray-400">PDF generation runs in the background. Check History tab for download when ready.</p>
+          ))}
         </div>
-      )}
-
-      {/* ── Preview Tab ─────────────────────────────────────────────────────── */}
-      {activeTab === "preview" && (
-        <div className="space-y-6">
-          {prevError && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">{prevError}</div>
-          )}
-
-          {!preview && !prevError && (
-            <div className="text-center py-16 text-gray-400">
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-              <p>Click <strong>Preview in App</strong> on the Generate tab to load live data here.</p>
-            </div>
-          )}
-
-          {preview && (() => {
-            const scores = preview.score_series || [];
-            const avgScore  = scores.length ? Math.round(scores.reduce((s, r) => s + r.score, 0) / scores.length) : null;
-            const bestScore = scores.length ? Math.round(Math.max(...scores.map(r => r.score))) : null;
-            const worstScore= scores.length ? Math.round(Math.min(...scores.map(r => r.score))) : null;
+      </div>
+      {/* Date range */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-white/30 text-xs">From</label>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+            className="px-2 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/60 text-xs focus:outline-none focus:border-indigo-500/50" />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-white/30 text-xs">To</label>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+            className="px-2 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/60 text-xs focus:outline-none focus:border-indigo-500/50" />
+        </div>
+      </div>
+      {/* Biomarkers */}
+      <div>
+        <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-2">Biomarkers</p>
+        <div className="flex flex-wrap gap-2">
+          {BIO_OPTIONS.map((b) => {
+            const on = bios.includes(b.value);
             return (
-            <>
-              {/* Score summary cards */}
-              {scores.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`rounded-xl p-4 border ${avgScore >= 70 ? "bg-green-50 border-green-200" : avgScore >= 40 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Avg Health Score</p>
-                    <p className="text-3xl font-black text-gray-900 mt-1">{avgScore}<span className="text-sm font-normal text-gray-400">/100</span></p>
-                  </div>
-                  <div className="rounded-xl p-4 border bg-green-50 border-green-200">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Best Score</p>
-                    <p className="text-3xl font-black text-gray-900 mt-1">{bestScore}<span className="text-sm font-normal text-gray-400">/100</span></p>
-                  </div>
-                  <div className={`rounded-xl p-4 border ${worstScore >= 70 ? "bg-green-50 border-green-200" : worstScore >= 40 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lowest Score</p>
-                    <p className="text-3xl font-black text-gray-900 mt-1">{worstScore}<span className="text-sm font-normal text-gray-400">/100</span></p>
-                  </div>
-                  <div className="rounded-xl p-4 border bg-blue-50 border-blue-200">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Days Tracked</p>
-                    <p className="text-3xl font-black text-gray-900 mt-1">{scores.length}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
-                  No health score data for this period. Visit your <strong>My Pet</strong> page to generate your daily score.
-                </div>
-              )}
+              <button key={b.value} onClick={() => toggleBio(b.value)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${on ? "border-opacity-40 text-white/80" : "border-white/[0.07] text-white/30 hover:border-white/20"}`}
+                style={on ? { borderColor: b.color + "60", background: b.color + "15", color: b.color } : {}}>
+                {b.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 
-              {/* Score chart */}
-              {preview.score_series?.length > 1 && (
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-800 mb-4">Daily Health Score</h3>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={preview.score_series}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <ReferenceLine y={70} stroke="#16a34a" strokeDasharray="4 4" label={{ value: "Happy", fontSize: 10, fill: "#16a34a" }} />
-                      <ReferenceLine y={40} stroke="#d97706" strokeDasharray="4 4" label={{ value: "Sad", fontSize: 10, fill: "#d97706" }} />
-                      <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} name="Score" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+  const activeBioMeta = BIO_OPTIONS.find((b) => b.value === activeBio);
+  const activeStat    = preview?.stats?.find((s) => s.biomarker_type === activeBio);
+  const chartData     = (preview?.series?.[activeBio] || [])
+    .map((p) => ({ ts: new Date(p.date || p.recorded_at || p.ts || 0).getTime(), v: Number(p.value ?? p.v) }))
+    .filter((p) => Number.isFinite(p.ts) && p.ts > 0 && Number.isFinite(p.v))
+    .sort((a, b) => a.ts - b.ts);
+  const scoreChartData = (preview?.score_series || [])
+    .map((p) => ({ ts: new Date(p.date || 0).getTime(), v: Number(p.score) }))
+    .filter((p) => Number.isFinite(p.ts) && p.ts > 0 && Number.isFinite(p.v))
+    .sort((a, b) => a.ts - b.ts);
 
-              {/* Biomarker charts */}
-              {Object.entries(preview.series || {}).map(([bt, data]) => {
-                if (!data.length) return null;
-                const norm = preview.normals?.[bt] || NORMALS[bt];
-                const bio  = BIOMARKER_OPTIONS.find(b => b.value === bt);
-                return (
-                  <div key={bt} className="bg-white border border-gray-200 rounded-2xl p-5">
-                    <h3 className="font-bold text-gray-800 mb-4">
-                      {bio?.label || bt} <span className="text-xs text-gray-400 font-normal">({norm?.unit})</span>
-                    </h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <LineChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        {norm && <ReferenceLine y={norm.min} stroke="#16a34a" strokeDasharray="3 3" opacity={0.6} />}
-                        {norm && <ReferenceLine y={norm.max} stroke="#16a34a" strokeDasharray="3 3" opacity={0.6} label={{ value: `Normal (${norm.min}–${norm.max})`, fontSize: 9, fill: "#16a34a", position: "insideTopRight" }} />}
-                        <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} name={bio?.label || bt} />
-                      </LineChart>
+  return (
+    <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
+      <div className="max-w-4xl mx-auto pb-10 space-y-6">
+
+        {/* Header */}
+        <div>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Health Reports</h1>
+          <p className="text-white/40 text-sm mt-1">Generate, preview, and download your health reports.</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {["generate","preview","history"].map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors capitalize ${tab === t ? "bg-indigo-500/15 border-indigo-500/25 text-indigo-300" : "bg-white/[0.03] border-white/[0.07] text-white/40 hover:text-white/60"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Generate tab ── */}
+        {tab === "generate" && (
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-5">
+            <SharedForm />
+            {genError   && <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{genError}</div>}
+            {genSuccess && <div className="px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm">{genSuccess}</div>}
+            <div className="flex gap-3 pt-2">
+              <button onClick={handleGenerate} disabled={generating}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-sm font-semibold hover:bg-indigo-500/20 transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+                {generating ? (
+                  <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Generating…</>
+                ) : "Generate Report"}
+              </button>
+              <button onClick={() => { loadPreview(); setTab("preview"); }}
+                className="px-5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.07] text-white/40 text-sm hover:bg-white/[0.07] hover:text-white/60 transition-colors">
+                Preview
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Preview tab ── */}
+        {tab === "preview" && (
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-4">
+              <SharedForm />
+              <button onClick={loadPreview} disabled={prevLoading}
+                className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-sm font-semibold hover:bg-indigo-500/20 transition-colors disabled:opacity-40">
+                {prevLoading ? "Loading preview…" : "Load Preview"}
+              </button>
+              {prevError && <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{prevError}</div>}
+            </div>
+
+            {preview && (
+              <div className="space-y-6">
+
+                {/* ── Report header ── */}
+                <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-white/25 text-[10px] uppercase tracking-widest font-semibold">Pulse Health Report</p>
+                    <p className="text-white/70 font-semibold mt-0.5">{fmtDate(dateFrom)} — {fmtDate(dateTo)}</p>
+                    <p className="text-white/30 text-xs mt-1">
+                      {preview.stats?.filter((s) => s.readings_count > 0).length || 0} biomarkers tracked ·{" "}
+                      {preview.stats?.reduce((a, s) => a + s.readings_count, 0) || 0} total readings
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-white/25 text-xs">Preview generated</p>
+                    <p className="text-white/40 text-xs mt-0.5">{new Date().toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" })}</p>
+                  </div>
+                </div>
+
+                {/* ── Overview stat cards ── */}
+                {(() => {
+                  const hr   = preview.stats?.find((s) => s.biomarker_type === "heart_rate");
+                  const gluc = preview.stats?.find((s) => s.biomarker_type === "glucose");
+                  const stp  = preview.stats?.find((s) => s.biomarker_type === "steps");
+                  const avgScore = preview.score_series?.length
+                    ? Math.round(preview.score_series.reduce((a, x) => a + (x.score || 0), 0) / preview.score_series.length)
+                    : null;
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: "Avg Health Score", val: avgScore,  sfx: "/100",   cls: "text-indigo-400",  grad: "from-indigo-500/10 to-indigo-500/5 border-indigo-500/15" },
+                        { label: "Avg Heart Rate",   val: hr?.avg,   sfx: " bpm",   cls: "text-red-400",     grad: "from-red-500/10 to-red-500/5 border-red-500/15"         },
+                        { label: "Avg Glucose",      val: gluc?.avg, sfx: " mg/dL", cls: "text-green-400",   grad: "from-green-500/10 to-green-500/5 border-green-500/15"   },
+                        { label: "Avg Steps",        val: stp?.avg != null ? Math.round(stp.avg).toLocaleString() : null, sfx: "", cls: "text-blue-400", grad: "from-blue-500/10 to-blue-500/5 border-blue-500/15" },
+                      ].map((s) => (
+                        <div key={s.label} className={`rounded-2xl border bg-gradient-to-br p-4 ${s.grad}`}>
+                          <p className="text-white/30 text-[10px] uppercase tracking-widest font-semibold">{s.label}</p>
+                          <p className={`text-2xl font-bold mt-1 ${s.cls}`}>
+                            {s.val != null ? `${typeof s.val === "number" ? s.val.toFixed(1) : s.val}${s.sfx}` : "—"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* ── Health Score Trend ── */}
+                {scoreChartData.length > 1 && (
+                  <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+                    <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-4">Health Score Trend</p>
+                    <ResponsiveContainer width="100%" height={140}>
+                      <AreaChart data={scoreChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="#818cf8" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#818cf8" stopOpacity={0}   />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 4" stroke="rgba(255,255,255,0.05)" />
+                        <XAxis dataKey="ts" type="number" scale="time" domain={["auto","auto"]} tickCount={5}
+                          tickFormatter={(t) => new Date(t).toLocaleDateString(undefined, { month:"short", day:"numeric" })}
+                          tick={{ fill:"rgba(255,255,255,0.25)", fontSize:10 }} axisLine={false} tickLine={false} />
+                        <YAxis domain={[0,100]} tick={{ fill:"rgba(255,255,255,0.25)", fontSize:10 }} axisLine={false} tickLine={false} />
+                        <Tooltip content={<DarkTooltip />} />
+                        <Area type="monotone" dataKey="v" name="Health Score" stroke="#818cf8" strokeWidth={2} fill="url(#scoreGrad)" />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
-                );
-              })}
+                )}
 
-              {/* Biomarker stats */}
-              {(preview.stats || []).filter(s => s.status !== "no_data").length > 0 && (
-                <>
-                  <h3 className="font-bold text-gray-800">Biomarker Stats</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(preview.stats || []).filter(s => s.status !== "no_data").map(s => (
-                      <BiomarkerCard key={s.biomarker_type} stat={s} />
-                    ))}
-                  </div>
-                </>
-              )}
+                {/* ── Biomarker Analysis ── */}
+                {preview.stats?.filter((s) => s.readings_count > 0).length > 0 && (
+                  <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 space-y-5">
+                    <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Biomarker Analysis</p>
 
-              {/* Goals */}
-              {preview.goals_total > 0 && (
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-800 mb-4">Goal Tracking</h3>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="text-center bg-blue-50 rounded-xl py-3">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Total</p>
-                      <p className="text-2xl font-black text-gray-800">{preview.goals_total}</p>
+                    {/* Biomarker tabs */}
+                    <div className="flex flex-wrap gap-2">
+                      {preview.stats.filter((s) => s.readings_count > 0).map((s) => {
+                        const m = BIO_OPTIONS.find((b) => b.value === s.biomarker_type);
+                        const isA = activeBio === s.biomarker_type;
+                        return (
+                          <button key={s.biomarker_type} onClick={() => setActiveBio(s.biomarker_type)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${isA ? "" : "border-white/[0.07] text-white/35 hover:border-white/20 hover:text-white/55"}`}
+                            style={isA && m ? { borderColor: m.color + "60", background: m.color + "15", color: m.color } : {}}>
+                            {m?.label || s.biomarker_type}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div className="text-center bg-green-50 rounded-xl py-3">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Completed</p>
-                      <p className="text-2xl font-black text-green-700">{preview.goals_completed}</p>
-                    </div>
-                    <div className="text-center bg-gray-50 rounded-xl py-3">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">Rate</p>
-                      <p className="text-2xl font-black text-gray-800">{preview.goals_completion_rate ?? "—"}<span className="text-sm font-normal">%</span></p>
-                    </div>
-                  </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {preview.goals.map((g, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${g.status === "completed" ? "bg-green-500" : g.status === "missed" ? "bg-red-400" : "bg-gray-300"}`} />
-                        <span className="text-gray-700 flex-1">{g.goal_text}</span>
-                        <span className="text-xs text-gray-400">{g.completion_date}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Recommendations */}
-              {preview.recommendations?.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-800 mb-4">AI Recommendations</h3>
-                  <div className="space-y-3">
-                    {preview.recommendations.map((rec, i) => {
-                      const priorityColor = { urgent: "text-red-600 bg-red-50 border-red-200", high: "text-amber-600 bg-amber-50 border-amber-200", medium: "text-blue-600 bg-blue-50 border-blue-200", low: "text-gray-500 bg-gray-50 border-gray-200" }[rec.priority] || "text-gray-500 bg-gray-50 border-gray-200";
-                      return (
-                        <div key={i} className="border border-gray-100 rounded-xl p-4 bg-gray-50">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${priorityColor}`}>{rec.priority}</span>
-                            <span className="text-xs text-gray-400">{rec.category?.replace("_", " ")}</span>
-                          </div>
-                          <p className="font-semibold text-sm text-gray-800">{rec.title}</p>
-                          <p className="text-xs text-gray-500 mt-1">{rec.description}</p>
+                    {/* Active biomarker detail */}
+                    {activeStat && activeBioMeta && (
+                      <div className="space-y-4">
+                        {/* Status + trend row */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-xs px-2.5 py-1 rounded-full border font-semibold capitalize
+                            ${activeStat.status === "normal" ? "bg-green-500/10 border-green-500/20 text-green-400" :
+                              activeStat.status === "borderline" ? "bg-amber-500/10 border-amber-500/20 text-amber-400" :
+                              activeStat.status === "abnormal" ? "bg-red-500/10 border-red-500/20 text-red-400" :
+                              "bg-white/[0.05] border-white/[0.08] text-white/30"}`}>
+                            {activeStat.status?.replace("_", " ") || "No data"}
+                          </span>
+                          <span className={`text-xs font-semibold ${TREND_CLS[activeStat.trend] || "text-white/30"}`}>
+                            {TREND_ICON[activeStat.trend] || "–"} {activeStat.trend?.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-white/25 text-xs">{activeStat.readings_count} readings</span>
                         </div>
-                      );
-                    })}
+
+                        {/* Avg / Min / Max / Latest */}
+                        <div className="grid grid-cols-4 gap-2">
+                          {[["Avg", activeStat.avg], ["Min", activeStat.min], ["Max", activeStat.max], ["Latest", activeStat.latest]].map(([l, v]) => (
+                            <div key={l} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 text-center">
+                              <p className="text-white/25 text-xs mb-0.5">{l}</p>
+                              <p className="font-bold" style={{ color: activeBioMeta.color }}>
+                                {v != null ? (activeBio === "steps" ? Math.round(v).toLocaleString() : Number(v).toFixed(1)) : "—"}
+                              </p>
+                              <p className="text-white/20 text-[10px]">{activeStat.unit}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Days in normal range */}
+                        {activeStat.days_total > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="text-white/35 text-xs">Days in normal range</p>
+                              <p className="text-white/50 text-xs font-semibold">
+                                {activeStat.days_in_normal} / {activeStat.days_total} days
+                                {" "}({Math.round(activeStat.days_in_normal / activeStat.days_total * 100)}%)
+                              </p>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                              <div className="h-full rounded-full transition-all"
+                                style={{ width: `${Math.round(activeStat.days_in_normal / activeStat.days_total * 100)}%`, background: activeBioMeta.color + "cc" }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Chart */}
+                        {chartData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={180}>
+                            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="prevGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%"  stopColor={activeBioMeta.color} stopOpacity={0.25} />
+                                  <stop offset="95%" stopColor={activeBioMeta.color} stopOpacity={0}    />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 4" stroke="rgba(255,255,255,0.05)" />
+                              <XAxis dataKey="ts" type="number" scale="time" domain={["auto","auto"]} tickCount={5}
+                                tickFormatter={(t) => new Date(t).toLocaleDateString(undefined, { month:"short", day:"numeric" })}
+                                tick={{ fill:"rgba(255,255,255,0.25)", fontSize:10 }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fill:"rgba(255,255,255,0.25)", fontSize:10 }} axisLine={false} tickLine={false} />
+                              <Tooltip content={<DarkTooltip />} />
+                              {NORMALS[activeBio]?.min != null && <ReferenceLine y={NORMALS[activeBio].min} stroke="rgba(52,211,153,0.3)" strokeDasharray="4 3" />}
+                              {NORMALS[activeBio]?.max != null && <ReferenceLine y={NORMALS[activeBio].max} stroke="rgba(248,113,113,0.3)" strokeDasharray="4 3" />}
+                              <Area type="monotone" dataKey="v" name={activeBioMeta.label}
+                                stroke={activeBioMeta.color} strokeWidth={2} fill="url(#prevGrad)"
+                                dot={chartData.length < 20 ? { r: 3, fill: activeBioMeta.color, strokeWidth: 0 } : false} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <p className="text-white/20 text-xs text-center py-6">No chart data for this period.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Goals Performance ── */}
+                {preview.goals_total > 0 && (
+                  <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 space-y-4">
+                    <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Goals Performance</p>
+                    <div className="flex items-center gap-5">
+                      <div className="flex-shrink-0 text-center">
+                        <p className={`text-4xl font-bold ${preview.goals_completion_rate >= 80 ? "text-green-400" : preview.goals_completion_rate >= 50 ? "text-amber-400" : "text-red-400"}`}>
+                          {preview.goals_completion_rate != null ? `${preview.goals_completion_rate}%` : "—"}
+                        </p>
+                        <p className="text-white/30 text-xs mt-0.5">completion</p>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1.5 text-xs text-white/30">
+                          <span>{preview.goals_completed} completed</span>
+                          <span>{preview.goals_total} total</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${preview.goals_completion_rate || 0}%`, background: preview.goals_completion_rate >= 80 ? "#34d399" : preview.goals_completion_rate >= 50 ? "#f59e0b" : "#f87171" }} />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Recent goal completions */}
+                    {preview.goals?.length > 0 && (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {[...new Map(preview.goals.map((g) => [g.goal_text, g])).values()].slice(0, 8).map((g, i) => {
+                          const done = preview.goals.filter((x) => x.goal_text === g.goal_text && x.status === "completed").length;
+                          const total = preview.goals.filter((x) => x.goal_text === g.goal_text).length;
+                          return (
+                            <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.04] last:border-0">
+                              <span className="text-white/55 truncate flex-1">{g.goal_text}</span>
+                              <span className="text-white/30 flex-shrink-0 ml-3">{done}/{total} days</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── AI Recommendations & Action Items ── */}
+                {preview.recommendations?.length > 0 && (
+                  <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">AI Recommendations & Action Items</p>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                        {preview.recommendations.length} active
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {preview.recommendations.map((rec, i) => {
+                        const priorityStyle = rec.priority === "high" || rec.priority === 1
+                          ? "bg-red-500/10 border-red-500/20 text-red-400"
+                          : rec.priority === "medium" || rec.priority === 2
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                          : "bg-green-500/10 border-green-500/20 text-green-400";
+                        const rawSteps = Array.isArray(rec.action_steps) ? rec.action_steps : [];
+                        const actionSteps = rawSteps.map((s) =>
+                          typeof s === "string"
+                            ? { instruction: s, tip: null }
+                            : { instruction: s.instruction || s.step || s.tip || "", tip: s.tip !== s.instruction ? s.tip : null }
+                        ).filter((s) => s.instruction);
+                        return (
+                          <div key={i} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 space-y-3">
+                            {/* Header */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wide ${priorityStyle}`}>
+                                    {typeof rec.priority === "number" ? ["", "High", "Medium", "Low"][rec.priority] || rec.priority : rec.priority || "—"} priority
+                                  </span>
+                                  {rec.category && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/15 text-indigo-400 font-medium capitalize">
+                                      {rec.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-white/80 text-sm font-semibold">{rec.title}</p>
+                              </div>
+                            </div>
+                            {/* Description */}
+                            {rec.description && (
+                              <p className="text-white/50 text-xs leading-relaxed">{rec.description}</p>
+                            )}
+                            {/* Action steps */}
+                            {actionSteps.length > 0 && (
+                              <div>
+                                <p className="text-white/30 text-[10px] uppercase tracking-widest font-semibold mb-2">Action Steps</p>
+                                <ul className="space-y-1.5">
+                                  {actionSteps.map((step, j) => (
+                                    <li key={j} className="flex items-start gap-2 text-xs">
+                                      <span className="w-4 h-4 rounded-full bg-indigo-500/15 border border-indigo-500/20 flex-shrink-0 flex items-center justify-center text-indigo-400 text-[9px] font-bold mt-0.5">{j + 1}</span>
+                                      <div>
+                                        <p className="text-white/65">{step.instruction}</p>
+                                        {step.tip && <p className="text-white/30 mt-0.5 italic">{step.tip}</p>}
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {/* Related goal */}
+                            {rec.related_goal && (
+                              <p className="text-white/25 text-xs">
+                                <span className="text-white/35 font-medium">Related goal:</span> {rec.related_goal}
+                              </p>
+                            )}
+                            {/* Professional consultation warning */}
+                            {rec.requires_professional_consultation && (
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/[0.06] border border-amber-500/20">
+                                <svg className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <p className="text-amber-400 text-xs">Consult a healthcare professional before acting on this recommendation.</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── History tab ── */}
+        {tab === "history" && (
+          <div className="space-y-3">
+            {histLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-2xl bg-white/[0.03] border border-white/[0.05] animate-pulse" />)}
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/[0.1] p-8 text-center text-white/25 text-sm">
+                No reports yet.{" "}
+                <button onClick={() => setTab("generate")} className="text-indigo-400 hover:underline">Generate one.</button>
+              </div>
+            ) : (
+              reports.map((r) => (
+                <div key={r.id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-white/70 text-sm font-medium capitalize">{r.report_type} Report</p>
+                    <p className="text-white/30 text-xs mt-0.5">
+                      {r.date_from && r.date_to ? `${fmtDate(r.date_from)} – ${fmtDate(r.date_to)}` : fmtDate(r.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs px-2.5 py-1 rounded-full border font-semibold capitalize ${STATUS_CLS[r.status] || "bg-white/[0.05] border-white/[0.08] text-white/30"}`}>
+                      {r.status}
+                    </span>
+                    {r.status === "ready" && (
+                      <>
+                        <button onClick={() => handleDlPdf(r.id)} disabled={!!downloading}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40">
+                          {downloading === r.id + "-pdf" ? "…" : "PDF"}
+                        </button>
+                        <button onClick={() => handleDlCsv(r.id)} disabled={!!downloading}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-white/[0.05] border border-white/[0.09] text-white/40 hover:text-white/60 transition-colors disabled:opacity-40">
+                          {downloading === r.id + "-csv" ? "…" : "CSV"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-              )}
-            </>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* ── History Tab ─────────────────────────────────────────────────────── */}
-      {activeTab === "history" && (
-        <div className="space-y-3">
-          {loadingList && (
-            <div className="text-center py-10 text-gray-400">Loading reports...</div>
-          )}
-
-          {!loadingList && reports.length === 0 && (
-            <div className="text-center py-16 text-gray-400">
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              <p>No reports yet. Generate your first report!</p>
-            </div>
-          )}
-
-          {reports.map(report => (
-            <ReportRow
-              key={report.id}
-              report={report}
-              onDownloadPdf={(id) => downloadReportPdf(id)}
-              onDownloadCsv={(id) => downloadReportCsv(id)}
-            />
-          ))}
-
-          {reports.some(r => r.status === "pending" || r.status === "generating") && (
-            <p className="text-xs text-center text-blue-500 animate-pulse pt-2">
-              Report generation in progress — page will refresh automatically...
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+              ))
+            )}
+            <button onClick={loadHistory} className="w-full py-2 rounded-xl border border-white/[0.06] text-white/30 text-xs hover:text-white/50 transition-colors">
+              Refresh
+            </button>
+          </div>
+        )}
+      </div>
+    </RoleProtection>
   );
 }

@@ -5,359 +5,201 @@ import { sendChatMessage, getChatHistory, clearChatHistory, getCurrentUser } fro
 import MessageMarkdown from "@/components/MessageMarkdown";
 import ChatQuickActions from "@/components/ChatQuickActions";
 
+const fmtTime = (ts) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+};
+
+const STARTER_CARDS = [
+  { emoji: "📊", title: "Your data",      prompt: "What was my average heart rate last week?"      },
+  { emoji: "🎯", title: "Goal tracking",  prompt: "Show me my goal completion rate this month"     },
+  { emoji: "💡", title: "Recommendations",prompt: "What are my active health recommendations?"     },
+  { emoji: "📈", title: "View trends",    prompt: "How has my glucose changed this month?"         },
+];
+
 export default function ChatPage() {
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [userName, setUserName] = useState("");
-  const messagesEndRef = useRef(null);
+  const [messages,  setMessages]  = useState([]);
+  const [input,     setInput]     = useState("");
+  const [loading,   setLoading]   = useState(true);
+  const [streaming, setStreaming] = useState(false);
+  const [userName,  setUserName]  = useState("");
+  const endRef   = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Load chat history and user info on mount
-  useEffect(() => {
-    loadChatHistory();
-    loadUserName();
+    (async () => {
+      try {
+        const [histRes, userRes] = await Promise.allSettled([getChatHistory(), getCurrentUser()]);
+        if (histRes.status === "fulfilled") setMessages(histRes.value?.messages || []);
+        if (userRes.status === "fulfilled") setUserName(userRes.value?.full_name?.split(" ")[0] || "there");
+      } finally { setLoading(false); }
+    })();
   }, []);
 
-  const loadUserName = async () => {
-    try {
-      const user = await getCurrentUser();
-      if (user?.full_name) {
-        // Get first name only
-        setUserName(user.full_name.split(" ")[0]);
-      }
-    } catch (error) {
-      console.error("Failed to load user name:", error);
-      setUserName("there");
-    }
-  };
-
-  const loadChatHistory = async () => {
-    try {
-      setIsLoading(true);
-      const history = await getChatHistory();
-      setMessages(history.messages || []);
-    } catch (error) {
-      console.error("Failed to load chat history:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleClearHistory = async () => {
-    if (!confirm("Are you sure you want to clear all chat history?")) {
-      return;
-    }
-
-    try {
-      await clearChatHistory();
-      setMessages([]);
-    } catch (error) {
-      console.error("Failed to clear chat history:", error);
-      alert("Failed to clear chat history");
-    }
+  const handleClear = async () => {
+    if (!confirm("Clear all chat history?")) return;
+    try { await clearChatHistory(); setMessages([]); } catch (_) {}
   };
 
   const handleQuickAction = (prompt) => {
-    if (isStreaming) return;
-    setInputMessage(prompt);
-    // Auto-submit the quick action
-    handleSendMessage(null, prompt);
+    if (streaming) return;
+    setInput(prompt);
+    send(null, prompt);
   };
 
-  const handleSendMessage = async (e, quickPrompt = null) => {
+  const send = async (e, quickPrompt = null) => {
     if (e) e.preventDefault();
+    const text = quickPrompt || input.trim();
+    if (!text || streaming) return;
+    setInput("");
 
-    const userMessage = quickPrompt || inputMessage.trim();
-    if (!userMessage || isStreaming) return;
+    const userMsg = { role: "user",      content: text, created_at: new Date().toISOString() };
+    const aId     = Date.now();
+    const aMsg    = { id: aId, role: "assistant", content: "", created_at: new Date().toISOString(), isStreaming: true };
 
-    setInputMessage("");
-
-    // Add user message to UI immediately
-    const newUserMessage = {
-      role: "user",
-      content: userMessage,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, newUserMessage]);
-    setIsStreaming(true);
-
-    // Add placeholder for assistant message
-    const assistantMessageId = Date.now();
-    const assistantMessage = {
-      id: assistantMessageId,
-      role: "assistant",
-      content: "",
-      created_at: new Date().toISOString(),
-      isStreaming: true,
-    };
-    setMessages((prev) => [...prev, assistantMessage]);
+    setMessages((p) => [...p, userMsg, aMsg]);
+    setStreaming(true);
 
     try {
-      // Call API and get response
-      const response = await sendChatMessage(userMessage);
-
-      // Simulate typing effect
-      let currentIndex = 0;
-      const typingSpeed = 10; // milliseconds per character
-
-      const typeCharacter = () => {
-        if (currentIndex <= response.length) {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: response.substring(0, currentIndex),
-                    isStreaming: currentIndex < response.length
-                  }
-                : msg
-            )
-          );
-          currentIndex++;
-
-          if (currentIndex <= response.length) {
-            setTimeout(typeCharacter, typingSpeed);
-          } else {
-            setIsStreaming(false);
-          }
-        }
+      const response = await sendChatMessage(text);
+      let idx = 0;
+      const type = () => {
+        if (idx > response.length) { setStreaming(false); return; }
+        setMessages((p) => p.map((m) =>
+          m.id === aId ? { ...m, content: response.substring(0, idx), isStreaming: idx < response.length } : m
+        ));
+        idx++;
+        if (idx <= response.length) setTimeout(type, 10);
+        else setStreaming(false);
       };
-
-      typeCharacter();
-    } catch (error) {
-      console.error("Failed to send message:", error);
-
-      // Show error message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                content: "Sorry, I encountered an error. Please try again.",
-                isStreaming: false,
-                isError: true,
-              }
-            : msg
-        )
-      );
-    } finally {
-      // Don't set isStreaming to false here - the typing effect handles it
-      inputRef.current?.focus();
-    }
-  };
-
-  const formatTime = (timestamp) => {
-    if (!timestamp) return "";
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+      type();
+    } catch (_) {
+      setMessages((p) => p.map((m) =>
+        m.id === aId ? { ...m, content: "Sorry, something went wrong. Please try again.", isStreaming: false, isError: true } : m
+      ));
+      setStreaming(false);
+    } finally { inputRef.current?.focus(); }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col bg-[#030712]" style={{ height: "calc(100vh - 80px)" }}>
+
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Pulse AI Chat</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Your personal health assistant
-            </p>
+      <div className="flex-shrink-0 px-6 py-4 border-b border-white/[0.07] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center">
+            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
           </div>
-          <button
-            onClick={handleClearHistory}
-            className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
-            disabled={messages.length === 0}
-          >
-            Clear History
-          </button>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-2xl font-bold">Pulse AI</h1>
         </div>
+        <button
+          onClick={handleClear}
+          disabled={messages.length === 0}
+          className="text-white/25 hover:text-red-400 text-xs transition-colors disabled:opacity-30"
+        >
+          Clear history
+        </button>
       </div>
 
-      {/* Chat Messages Container */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Welcome Message */}
-          {messages.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <div className="inline-block p-4 bg-indigo-100 rounded-full mb-4">
-                <svg
-                  className="w-12 h-12 text-indigo-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
+        <div className="max-w-3xl mx-auto space-y-5">
+
+          {/* Welcome */}
+          {!loading && messages.length === 0 && (
+            <div className="text-center py-10 space-y-6">
+              <div>
+                <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                  </svg>
+                </div>
+                <h2 className="text-white/80 text-xl font-bold mb-1">Hey {userName}!</h2>
+                <p className="text-white/35 text-sm max-w-sm mx-auto">
+                  I'm your personal health assistant. Ask me anything about your data, goals, or recommendations.
+                </p>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Hi {userName || "there"}! 👋
-              </h2>
-              <p className="text-gray-600 max-w-md mx-auto">
-                I'm Pulse AI, your personal health assistant. I can help you
-                track your health data, understand your progress, and achieve
-                your health goals!
-              </p>
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    📊 Ask about your data
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    "What was my average heart rate last week?"
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    🎯 Track your goals
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    "Show me my goal completion rate this month"
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    💡 Get recommendations
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    "What are my active health recommendations?"
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    📈 View trends
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    "How has my glucose changed this month?"
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 gap-3 max-w-xl mx-auto text-left">
+                {STARTER_CARDS.map((c) => (
+                  <button key={c.title} onClick={() => handleQuickAction(c.prompt)}
+                    className="rounded-xl border border-white/[0.07] bg-white/[0.02] hover:border-indigo-500/25 hover:bg-indigo-500/[0.05] p-4 text-left transition-colors group">
+                    <p className="text-base mb-1">{c.emoji}</p>
+                    <p className="text-white/55 text-xs font-semibold group-hover:text-white/70 transition-colors">{c.title}</p>
+                    <p className="text-white/25 text-xs mt-0.5 leading-snug">{c.prompt}</p>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <p className="text-gray-600 mt-4">Loading chat history...</p>
+          {/* Loading */}
+          {loading && (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 rounded-full border-2 border-indigo-400/30 border-t-indigo-400 animate-spin" />
             </div>
           )}
 
           {/* Messages */}
-          {messages.map((message, index) => (
-            <div
-              key={message.id || index}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <div
-                className={`max-w-[80%] md:max-w-[70%] ${
-                  message.role === "user"
-                    ? "bg-indigo-600 text-white rounded-2xl rounded-tr-sm"
-                    : message.isError
-                    ? "bg-red-50 text-red-900 border border-red-200 rounded-2xl rounded-tl-sm"
-                    : "bg-white text-gray-900 border border-gray-200 rounded-2xl rounded-tl-sm"
-                } px-4 py-3 shadow-sm`}
-              >
-                <div className="break-words">
-                  {message.role === "user" ? (
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                  ) : (
-                    <MessageMarkdown content={message.content} />
-                  )}
-                  {message.isStreaming && (
-                    <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse"></span>
-                  )}
+          {messages.map((m, i) => (
+            <div key={m.id || i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[80%] md:max-w-[72%] px-4 py-3 rounded-2xl shadow-sm ${
+                m.role === "user"
+                  ? "bg-indigo-600/80 text-white rounded-tr-sm"
+                  : m.isError
+                  ? "bg-red-500/10 border border-red-500/20 text-red-400 rounded-tl-sm"
+                  : "bg-white/[0.06] border border-white/[0.09] text-white/80 rounded-tl-sm"
+              }`}>
+                <div className="break-words text-sm leading-relaxed">
+                  {m.role === "user"
+                    ? <div className="whitespace-pre-wrap">{m.content}</div>
+                    : <MessageMarkdown content={m.content} />
+                  }
+                  {m.isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />}
                 </div>
-                {message.created_at && (
-                  <div
-                    className={`text-xs mt-2 ${
-                      message.role === "user"
-                        ? "text-indigo-200"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {formatTime(message.created_at)}
-                  </div>
+                {m.created_at && (
+                  <p className={`text-xs mt-1.5 ${m.role === "user" ? "text-indigo-300/60" : "text-white/25"}`}>
+                    {fmtTime(m.created_at)}
+                  </p>
                 )}
               </div>
             </div>
           ))}
 
-          <div ref={messagesEndRef} />
+          <div ref={endRef} />
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <ChatQuickActions
-        onActionClick={handleQuickAction}
-        isDisabled={isStreaming}
-      />
+      {/* Quick actions */}
+      <ChatQuickActions onActionClick={handleQuickAction} isDisabled={streaming} />
 
-      {/* Input Form */}
-      <div className="bg-white border-t border-gray-200 px-4 py-4 shadow-lg">
-        <form
-          onSubmit={handleSendMessage}
-          className="max-w-4xl mx-auto flex gap-3"
-        >
+      {/* Input */}
+      <div className="flex-shrink-0 px-4 py-4 border-t border-white/[0.07] bg-[#0a0f1e]/50">
+        <form onSubmit={send} className="max-w-3xl mx-auto flex gap-3">
           <input
             ref={inputRef}
             type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={
-              isStreaming
-                ? "Pulse AI is thinking..."
-                : "Ask me anything about your health..."
-            }
-            disabled={isStreaming}
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={streaming ? "Pulse AI is thinking…" : "Ask me anything about your health…"}
+            disabled={streaming}
+            className="flex-1 px-4 py-3 bg-white/[0.04] border border-white/[0.09] rounded-xl text-white/80 placeholder-white/20 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={!inputMessage.trim() || isStreaming}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            disabled={!input.trim() || streaming}
+            className="px-5 py-3 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
-            {isStreaming ? (
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Sending...</span>
-              </div>
-            ) : (
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            )}
+            {streaming
+              ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+            }
           </button>
         </form>
       </div>

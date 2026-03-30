@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRive } from "@rive-app/react-canvas";
 import { translations } from "@/lib/i18n";
+import MarketingNav from "@/components/MarketingNav";
 
 const S3       = "https://pulse-hw-public-assets.s3.us-east-1.amazonaws.com/device-icons";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -412,11 +413,10 @@ function FooterPet({ src, label, index, triggered }) {
 export default function Home() {
   const router = useRouter();
   const [isLoading, setIsLoading]       = useState(true);
-  const [scrolled, setScrolled]         = useState(false);
   const [petCatalog, setPetCatalog]     = useState([]);
   const [petsTriggered, setPetsTriggered] = useState(false);
   const [lang, setLang]                 = useState("en");
-  const [mobileOpen, setMobileOpen]     = useState(false);
+  const [billing, setBilling]           = useState("monthly");
   const petFloorRef = useRef(null);
   const t = translations[lang];
 
@@ -426,11 +426,6 @@ export default function Home() {
     else setIsLoading(false);
   }, [router]);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/v1/pets/catalog`)
@@ -465,99 +460,7 @@ export default function Home() {
     <div className="relative bg-gray-950 text-white overflow-x-hidden">
 
       {/* ══ NAVBAR ══ */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50" style={{ width: "min(860px, calc(100vw - 24px))" }}>
-        <nav className={`flex items-center justify-between px-3 py-1.5 rounded-full transition-all duration-300
-          ${scrolled
-            ? "bg-white/12 backdrop-blur-2xl border border-white/20 shadow-xl shadow-black/30"
-            : "bg-white/8  backdrop-blur-xl  border border-white/15"
-          }`}>
-          {/* Logo */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <LogoMark />
-            <span className="text-white font-bold text-[15px] tracking-tight">Pulse</span>
-          </div>
-
-          {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-4">
-            {[
-              { label: t.nav.features, href: "#features" },
-              { label: t.nav.pricing,  href: "#pricing"  },
-              { label: t.nav.forHcps,  href: "#hcp"      },
-              { label: t.nav.blog,     href: "/blog"     },
-              { label: t.nav.about,    href: "/about"    },
-              { label: t.nav.contact,  href: "/contact"  },
-            ].map((item) => (
-              <a key={item.href} href={item.href}
-                 className="text-white/60 text-xs font-medium hover:text-white transition-colors duration-150 whitespace-nowrap">
-                {item.label}
-              </a>
-            ))}
-          </div>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Language toggle */}
-            <button
-              onClick={() => setLang(l => l === "en" ? "ar" : "en")}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all duration-150 text-[11px] font-bold"
-              aria-label="Switch language"
-            >
-              {lang === "en" ? "ع" : "EN"}
-            </button>
-            <Link href="/login"
-              className="hidden sm:block text-white/80 text-xs font-semibold px-3 py-1.5 rounded-full hover:text-white hover:bg-white/10 transition-all duration-150 whitespace-nowrap">
-              {t.nav.signIn}
-            </Link>
-            <Link href="/register"
-              className="hidden sm:block bg-white text-gray-900 text-xs font-bold px-4 py-1.5 rounded-full hover:bg-gray-100 transition-all duration-150 shadow-md shadow-black/20 whitespace-nowrap">
-              {t.nav.getStarted}
-            </Link>
-            {/* Hamburger — mobile only */}
-            <button
-              onClick={() => setMobileOpen(o => !o)}
-              className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all duration-150"
-              aria-label="Toggle menu"
-            >
-              {mobileOpen
-                ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4"><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4"><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
-              }
-            </button>
-          </div>
-        </nav>
-
-        {/* Mobile dropdown */}
-        {mobileOpen && (
-          <div className="md:hidden mt-2 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/15 shadow-xl shadow-black/30 overflow-hidden">
-            <div className="px-4 py-3 space-y-0.5">
-              {[
-                { label: t.nav.features, href: "#features" },
-                { label: t.nav.pricing,  href: "#pricing"  },
-                { label: t.nav.forHcps,  href: "#hcp"      },
-                { label: t.nav.blog,     href: "/blog"     },
-                { label: t.nav.about,    href: "/about"    },
-                { label: t.nav.contact,  href: "/contact"  },
-              ].map((item) => (
-                <a key={item.href} href={item.href}
-                   onClick={() => setMobileOpen(false)}
-                   className="block text-white/70 text-sm font-medium py-2.5 px-3 rounded-xl hover:bg-white/10 hover:text-white transition-all duration-150">
-                  {item.label}
-                </a>
-              ))}
-            </div>
-            <div className="border-t border-white/10 px-4 py-3 flex items-center gap-2">
-              <Link href="/login" onClick={() => setMobileOpen(false)}
-                className="flex-1 text-center text-white/80 text-xs font-semibold py-2 px-3 rounded-xl bg-white/[0.06] hover:bg-white/10 transition-all border border-white/10">
-                {t.nav.signIn}
-              </Link>
-              <Link href="/register" onClick={() => setMobileOpen(false)}
-                className="flex-1 text-center bg-white text-gray-900 text-xs font-bold py-2 px-3 rounded-xl hover:bg-gray-100 transition-all shadow-sm">
-                {t.nav.getStarted}
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
+            <MarketingNav lang={lang} onLangChange={setLang} />
 
       {/* ══ HERO ══ */}
       <section className="relative min-h-screen overflow-hidden bg-gray-950 flex flex-col">
@@ -912,30 +815,44 @@ export default function Home() {
             {t.pricing.sub}
           </p>
 
-          {/* Pricing grid */}
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+          {/* Monthly / Annual toggle */}
+          <div className="flex items-center justify-center mb-10">
+            <div className="flex items-center bg-white/[0.05] border border-white/[0.1] rounded-full p-1 gap-1">
+              <button
+                onClick={() => setBilling("monthly")}
+                className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${billing === "monthly" ? "bg-white text-gray-900 shadow" : "text-white/50 hover:text-white"}`}>
+                Monthly
+              </button>
+              <button
+                onClick={() => setBilling("annual")}
+                className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 ${billing === "annual" ? "bg-white text-gray-900 shadow" : "text-white/50 hover:text-white"}`}>
+                Annual
+                <span className="bg-green-500/20 text-green-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full">Save 25%</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ── Live plans: 3 columns ── */}
+          <div className="grid md:grid-cols-3 gap-4 items-stretch mb-4">
 
             {/* Free */}
             <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 flex flex-col">
-              <div className="mb-5">
-                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Free</p>
-                <div className="flex items-end gap-1.5 mb-1">
-                  <span className="font-serif text-4xl text-white">$0</span>
-                </div>
-                <p className="text-white/30 text-xs">Forever free. No card needed.</p>
+              <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-3">Free</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-serif text-4xl text-white">$0</span>
               </div>
+              <p className="text-white/25 text-xs mb-5">Forever free · no card needed</p>
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
                   "1 wearable connection",
                   "7-day data history",
                   "Heart rate, steps & sleep",
                   "Pulse Pet (basic)",
-                  "Manual biomarker entry",
-                  "5 AI responses / month",
+                  "5 AI responses/mo",
                   "Email alerts",
                 ].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
-                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-white/25 flex-shrink-0 mt-0.5">
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/40">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-white/20 flex-shrink-0 mt-0.5">
                       <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
                     </svg>
                     {f}
@@ -943,40 +860,37 @@ export default function Home() {
                 ))}
               </ul>
               <Link href="/register"
-                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                className="w-full text-center text-white/55 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
                 Get Started Free
               </Link>
             </div>
 
-            {/* Pro — most popular */}
+            {/* Pro */}
             <div className="relative bg-white/[0.06] border border-indigo-500/40 rounded-2xl p-6 flex flex-col shadow-xl shadow-indigo-500/10">
-              {/* Popular badge */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/40 whitespace-nowrap">
                 Most Popular
               </div>
-              <div className="mb-5">
-                <p className="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Pro</p>
-                <div className="flex items-end gap-1.5 mb-1">
-                  <span className="font-serif text-4xl text-white">$12</span>
-                  <span className="text-white/35 text-sm mb-1.5">/month</span>
-                </div>
-                <p className="text-white/30 text-xs">AED 44 / month · save 20% annually</p>
+              <p className="text-indigo-400 text-[10px] font-semibold uppercase tracking-widest mb-3">Pro</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-serif text-4xl text-white">{billing === "annual" ? "$9" : "$12"}</span>
+                <span className="text-white/35 text-sm mb-1.5">/mo</span>
               </div>
+              <p className="text-white/25 text-xs mb-5">
+                {billing === "annual" ? "Billed $108/yr · save 25%" : "AED 44/mo · save 25% annually"}
+              </p>
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
                   "Unlimited device connections",
                   "Full data history",
-                  "All 6 biomarkers (incl. BP & glucose)",
-                  "Full Pulse Pet + streaks & accessories",
-                  "Unlimited AI health companion",
-                  "AI-powered recommendations",
-                  "Custom smart alerts & thresholds",
-                  "Monthly PDF + CSV health reports",
-                  "Connect with 1 Healthcare Provider",
-                  "Emergency contact alerts",
+                  "All 6 biomarkers",
+                  "Full Pulse Pet + streaks",
+                  "Unlimited AI companion",
+                  "Custom smart alerts",
+                  "PDF & CSV health reports",
+                  "Connect with 1 HCP",
                 ].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-xs text-white/65">
-                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0 mt-0.5">
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/60">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-indigo-400 flex-shrink-0 mt-0.5">
                       <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
                     </svg>
                     {f}
@@ -990,31 +904,32 @@ export default function Home() {
               <p className="text-white/20 text-[10px] text-center mt-2">14-day trial · no card required</p>
             </div>
 
-            {/* HCP */}
-            <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 flex flex-col">
-              <div className="mb-5">
-                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Healthcare Provider</p>
-                <div className="flex items-end gap-1.5 mb-1">
-                  <span className="font-serif text-4xl text-white">$49</span>
-                  <span className="text-white/35 text-sm mb-1.5">/month</span>
-                </div>
-                <p className="text-white/30 text-xs">AED 180 / month · per provider account</p>
+            {/* Healthcare Provider */}
+            <div className="bg-white/[0.04] border border-green-500/20 rounded-2xl p-6 flex flex-col">
+              <p className="text-green-400 text-[10px] font-semibold uppercase tracking-widest mb-3">Healthcare Provider</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-serif text-4xl text-white">{billing === "annual" ? "$39" : "$49"}</span>
+                <span className="text-white/35 text-sm mb-1.5">/mo</span>
+              </div>
+              <p className="text-white/25 text-xs mb-3">
+                {billing === "annual" ? "Billed $468/yr · save 20%" : "AED 180/mo · per provider"}
+              </p>
+              <div className="bg-green-500/[0.07] border border-green-500/15 rounded-xl px-3 py-2 mb-5">
+                <p className="text-green-400 text-[10px] font-semibold">💰 Earn from consultations</p>
+                <p className="text-white/30 text-[10px] mt-0.5">Set your rate · patients book via Pulse</p>
               </div>
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
-                  "Everything in Pro (for yourself)",
+                  "Everything in Pro",
                   "Monitor up to 20 patients",
-                  "Real-time patient biomarker access",
-                  "Per-patient custom alert thresholds",
+                  "Real-time patient biomarkers",
                   "Clinical notes system",
-                  "Patient PDF report generation",
+                  "One-tap patient PDF reports",
                   "Priority alert notifications",
-                  "Patient connection management",
-                  "License verification included",
-                  "Recommendations view per patient",
+                  "Marketplace listing",
                 ].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
-                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5">
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/50">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5">
                       <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
                     </svg>
                     {f}
@@ -1022,46 +937,48 @@ export default function Home() {
                 ))}
               </ul>
               <Link href="/register"
-                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-green-500/40 hover:text-white transition-all duration-200">
                 Join as HCP
               </Link>
             </div>
+          </div>
 
-            {/* Clinic / Enterprise */}
-            <div className="bg-gradient-to-b from-white/[0.05] to-white/[0.02] border border-white/[0.1] rounded-2xl p-6 flex flex-col">
-              <div className="mb-5">
-                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Clinic / Enterprise</p>
-                <div className="flex items-end gap-1.5 mb-1">
-                  <span className="font-serif text-3xl text-white">Custom</span>
+          {/* ── Coming Soon: Hospital plans side by side ── */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {[
+              {
+                label: "Hospital Affiliated — Patients",
+                sub: "Free for patients · hospital sponsored",
+                desc: "Your hospital licenses Pulse and covers the cost. Patients log in with existing hospital credentials.",
+                cta: "Register Interest →",
+                href: "/contact?reason=clinic",
+              },
+              {
+                label: "Hospital Affiliated — Providers",
+                sub: "Free for providers · hospital sponsored",
+                desc: "Doctors at Pulse-licensed hospitals log in via institutional credentials to monitor assigned patients.",
+                cta: "Contact for Hospital Licensing →",
+                href: "/contact?reason=clinic",
+              },
+            ].map((card) => (
+              <div key={card.label} className="relative bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className="font-serif text-xl text-white/45">Custom Pricing</p>
+                    <p className="text-white/20 text-xs mt-0.5">{card.sub}</p>
+                  </div>
+                  <span className="flex-shrink-0 bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full">
+                    Coming Soon
+                  </span>
                 </div>
-                <p className="text-white/30 text-xs">Tailored to your clinic's scale</p>
+                <p className="text-white/20 text-[11px] leading-relaxed">{card.desc}</p>
+                <Link href={card.href}
+                  className="w-full text-center text-white/30 font-semibold text-xs py-2 rounded-xl border border-white/[0.07] hover:border-white/15 hover:text-white/50 transition-all duration-200 mt-auto">
+                  {card.cta}
+                </Link>
               </div>
-              <ul className="space-y-2.5 mb-7 flex-1">
-                {[
-                  "Unlimited patient capacity",
-                  "Multiple HCP accounts",
-                  "Centralised clinic dashboard",
-                  "Bulk report generation",
-                  "API access & custom integrations",
-                  "Dedicated account manager",
-                  "SLA-backed uptime guarantee",
-                  "Staff onboarding & training",
-                  "HIPAA + GDPR compliance support",
-                  "Custom billing & invoicing",
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
-                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5">
-                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
-                    </svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/contact"
-                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
-                Contact Sales
-              </Link>
-            </div>
+            ))}
           </div>
 
           {/* FAQ footnote */}

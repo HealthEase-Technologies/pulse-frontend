@@ -6,36 +6,56 @@ import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 import LicenseViewerModal from "@/components/LicenseViewerModal";
 
+const STATUS_BADGE = {
+  approved: { cls: "bg-green-500/15 border-green-500/20 text-green-400" },
+  rejected: { cls: "bg-red-500/15   border-red-500/20   text-red-400"   },
+  pending:  { cls: "bg-amber-500/15 border-amber-500/20 text-amber-400" },
+};
+
+const FILTERS = ["all", "pending", "approved", "rejected"];
+
+const SPECIALISATIONS = [
+  "General Practice","Cardiology","Neurology","Pediatrics","Surgery",
+  "Orthopedics","Dermatology","Psychiatry","Radiology","Anesthesiology",
+  "Obstetrics & Gynecology","Ophthalmology","Emergency Medicine","Internal Medicine","Other",
+];
+
+function InputField({ label, required, children }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-white/40 uppercase tracking-wider mb-1.5">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
 export default function AdminProvidersPage() {
-  const [providers, setProviders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [providers, setProviders]       = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState("");
+  const [filter, setFilter]             = useState("all");
   const [processingId, setProcessingId] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpen, setModalOpen]       = useState(false);
   const [selectedLicense, setSelectedLicense] = useState(null);
-  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [licenseLoading, setLicenseLoading]   = useState(false);
 
-  // Edit state
-  const [editingProvider, setEditingProvider] = useState(null);
-  const [editName, setEditName] = useState("");
+  const [editingProvider, setEditingProvider]           = useState(null);
+  const [editName, setEditName]                         = useState("");
   const [editYearsOfExperience, setEditYearsOfExperience] = useState("");
-  const [editSpecialisation, setEditSpecialisation] = useState("");
-  const [editAbout, setEditAbout] = useState("");
+  const [editSpecialisation, setEditSpecialisation]     = useState("");
+  const [editAbout, setEditAbout]                       = useState("");
 
-  // View details state
   const [viewingProvider, setViewingProvider] = useState(null);
 
-  useEffect(() => {
-    loadProviders();
-  }, [filter]);
+  useEffect(() => { loadProviders(); }, [filter]);
 
   const loadProviders = async () => {
     setLoading(true);
     setError("");
     try {
-      const filterValue = filter === "all" ? null : filter;
-      const data = await getAllProviders(filterValue);
+      const data = await getAllProviders(filter === "all" ? null : filter);
       setProviders(data.providers || []);
     } catch (err) {
       console.error("Failed to load providers:", err);
@@ -50,7 +70,6 @@ export default function AdminProvidersPage() {
     setError("");
     try {
       await updateLicenseStatus(providerId, newStatus);
-      // Reload providers after update
       await loadProviders();
     } catch (err) {
       setError(err.message || "Failed to update license status");
@@ -77,31 +96,20 @@ export default function AdminProvidersPage() {
   const handleEditProvider = (provider) => {
     setEditingProvider(provider);
     setEditName(provider.full_name);
-    setEditYearsOfExperience(provider.years_of_experience !== null && provider.years_of_experience !== undefined ? provider.years_of_experience.toString() : "");
+    setEditYearsOfExperience(
+      provider.years_of_experience != null ? provider.years_of_experience.toString() : ""
+    );
     setEditSpecialisation(provider.specialisation || "");
     setEditAbout(provider.about || "");
   };
 
   const handleSaveEdit = async () => {
-    if (!editName.trim()) {
-      setError("Provider name cannot be empty");
-      return;
-    }
-
-    if (!editSpecialisation.trim()) {
-      setError("Specialisation is required");
-      return;
-    }
-
-    if (editYearsOfExperience !== "" && (parseInt(editYearsOfExperience) < 0 || parseInt(editYearsOfExperience) > 60)) {
-      setError("Years of experience must be between 0 and 60");
-      return;
-    }
-
-    if (editAbout && editAbout.length > 500) {
-      setError("About description must be 500 characters or less");
-      return;
-    }
+    if (!editName.trim()) return setError("Provider name cannot be empty");
+    if (!editSpecialisation.trim()) return setError("Specialisation is required");
+    if (editYearsOfExperience !== "" && (parseInt(editYearsOfExperience) < 0 || parseInt(editYearsOfExperience) > 60))
+      return setError("Years of experience must be between 0 and 60");
+    if (editAbout && editAbout.length > 500)
+      return setError("About must be 500 characters or less");
 
     setProcessingId(editingProvider.id);
     setError("");
@@ -109,19 +117,13 @@ export default function AdminProvidersPage() {
       const updateData = {
         full_name: editName.trim(),
         specialisation: editSpecialisation.trim(),
-        about: editAbout.trim() || null
+        about: editAbout.trim() || null,
       };
-
       if (editYearsOfExperience !== "") {
         updateData.years_of_experience = parseInt(editYearsOfExperience);
       }
-
       await updateProvider(editingProvider.id, updateData);
       setEditingProvider(null);
-      setEditName("");
-      setEditYearsOfExperience("");
-      setEditSpecialisation("");
-      setEditAbout("");
       await loadProviders();
     } catch (err) {
       setError(err.message || "Failed to update provider");
@@ -138,201 +140,156 @@ export default function AdminProvidersPage() {
     setEditAbout("");
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "approved":
-        return "text-green-700 bg-green-100";
-      case "pending":
-        return "text-yellow-700 bg-yellow-100";
-      case "rejected":
-        return "text-red-700 bg-red-100";
-      default:
-        return "text-gray-700 bg-gray-100";
-    }
+  const statusBadge = (status) => {
+    const s = status || "pending";
+    const { cls } = STATUS_BADGE[s] || STATUS_BADGE.pending;
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${cls}`}>
+        {s}
+      </span>
+    );
   };
+
+  const inputCls = "w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-indigo-500/50";
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.ADMIN]}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto">
+
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Provider Management</h1>
-          <p className="text-gray-600">Manage providers, licenses, and provider data</p>
+          <p className="text-white/30 text-xs font-semibold uppercase tracking-widest mb-1">Admin</p>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Provider Management</h1>
+          <p className="text-white/40 text-sm mt-1">Manage providers, licenses, and provider data</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex gap-2">
+        {/* Filter tabs */}
+        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3 mb-5 flex gap-2 flex-wrap">
+          {FILTERS.map((f) => (
             <button
-              onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                filter === "all"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all duration-150 capitalize ${
+                filter === f
+                  ? "bg-indigo-500/20 border border-indigo-500/30 text-indigo-300"
+                  : "text-white/35 hover:text-white/60 hover:bg-white/[0.05]"
               }`}
             >
-              All ({providers.length})
+              {f === "all" ? `All (${providers.length})` : f}
             </button>
-            <button
-              onClick={() => setFilter("pending")}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                filter === "pending"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Pending
-            </button>
-            <button
-              onClick={() => setFilter("approved")}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                filter === "approved"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Approved
-            </button>
-            <button
-              onClick={() => setFilter("rejected")}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                filter === "rejected"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Rejected
-            </button>
-          </div>
+          ))}
         </div>
 
-        {/* Providers Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Table */}
+        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Provider
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Professional Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    License Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Registered
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-white/[0.07]">
+                  {["Provider", "Professional Details", "License Status", "Registered", "Actions"].map((h, i) => (
+                    <th key={h} className={`px-6 py-3.5 text-[11px] font-semibold text-white/30 uppercase tracking-wider ${i === 4 ? "text-right" : "text-left"}`}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-white/[0.04]">
                 {loading ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <span className="ml-3 text-gray-600">Loading providers...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1.5">
+                          <div className="h-3 bg-white/[0.06] rounded w-36 animate-pulse" />
+                          <div className="h-2.5 bg-white/[0.04] rounded w-44 animate-pulse" />
+                        </div>
+                      </td>
+                      {[1,2,3,4].map((j) => (
+                        <td key={j} className="px-6 py-4">
+                          <div className="h-3 bg-white/[0.06] rounded w-20 animate-pulse" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
                 ) : providers.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="5" className="px-6 py-12 text-center text-white/30 text-sm">
                       No providers found
                     </td>
                   </tr>
                 ) : (
                   providers.map((provider) => (
-                    <tr key={provider.id} className="hover:bg-gray-50">
+                    <tr key={provider.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{provider.full_name}</div>
-                          <div className="text-sm text-gray-500">{provider.email}</div>
-                        </div>
+                        <div className="text-sm font-medium text-white">{provider.full_name}</div>
+                        <div className="text-xs text-white/40 mt-0.5">{provider.email}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {provider.specialisation ? (
-                            <>
-                              <div className="font-medium text-gray-700">{provider.specialisation}</div>
-                              {provider.years_of_experience !== null && provider.years_of_experience !== undefined && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {provider.years_of_experience} years experience
-                                </div>
-                              )}
-                              {provider.about && (
-                                <div className="text-xs text-gray-600 mt-1 max-w-xs line-clamp-2" title={provider.about}>
-                                  {provider.about}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">No details provided</span>
-                          )}
-                        </div>
+                      <td className="px-6 py-4 max-w-[220px]">
+                        {provider.specialisation ? (
+                          <>
+                            <div className="text-sm font-medium text-white/80">{provider.specialisation}</div>
+                            {provider.years_of_experience != null && (
+                              <div className="text-xs text-white/35 mt-0.5">{provider.years_of_experience} yrs exp</div>
+                            )}
+                            {provider.about && (
+                              <div className="text-xs text-white/30 mt-1 line-clamp-2">{provider.about}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-white/20 italic">No details</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                            provider.license_status
-                          )}`}
-                        >
-                          {provider.license_status || "pending"}
-                        </span>
+                        {statusBadge(provider.license_status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white/40">
                         {new Date(provider.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex gap-2 justify-end items-center">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex gap-1.5 justify-end items-center flex-wrap">
                           <button
                             onClick={() => setViewingProvider(provider)}
-                            className="px-3 py-1 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            className="px-3 py-1 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors"
                           >
-                            View Details
+                            Details
                           </button>
                           {provider.license_key && (
                             <button
                               onClick={() => handleViewLicense(provider.id)}
-                              className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
+                              className="px-3 py-1 text-xs text-white/40 hover:text-white/70 hover:bg-white/[0.05] rounded-lg transition-colors"
                             >
                               License
                             </button>
                           )}
                           {provider.license_status === "pending" && (
-                            <div className="flex gap-1">
+                            <>
                               <button
                                 onClick={() => handleStatusUpdate(provider.id, "approved")}
                                 disabled={processingId === provider.id}
-                                className="px-3 py-1 text-sm text-green-600 hover:text-green-900 hover:bg-green-50 rounded disabled:opacity-50 transition-colors"
-                                title="Approve License"
+                                className="px-3 py-1 text-xs text-green-400 hover:bg-green-500/10 rounded-lg disabled:opacity-40 transition-colors"
+                                title="Approve"
                               >
-                                ✓
+                                ✓ Approve
                               </button>
                               <button
                                 onClick={() => handleStatusUpdate(provider.id, "rejected")}
                                 disabled={processingId === provider.id}
-                                className="px-3 py-1 text-sm text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50 transition-colors"
-                                title="Reject License"
+                                className="px-3 py-1 text-xs text-red-400 hover:bg-red-500/10 rounded-lg disabled:opacity-40 transition-colors"
+                                title="Reject"
                               >
-                                ✗
+                                ✗ Reject
                               </button>
-                            </div>
+                            </>
                           )}
                           <button
                             onClick={() => handleEditProvider(provider)}
                             disabled={processingId === provider.id}
-                            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded disabled:opacity-50 transition-colors"
-                            title="Edit Provider"
+                            className="px-3 py-1 text-xs text-white/35 hover:text-white/60 hover:bg-white/[0.05] rounded-lg disabled:opacity-40 transition-colors"
                           >
                             Edit
                           </button>
@@ -349,106 +306,60 @@ export default function AdminProvidersPage() {
         {/* License Viewer Modal */}
         <LicenseViewerModal
           isOpen={modalOpen}
-          onClose={() => {
-            setModalOpen(false);
-            setSelectedLicense(null);
-          }}
+          onClose={() => { setModalOpen(false); setSelectedLicense(null); }}
           licenseUrl={selectedLicense}
           loading={licenseLoading}
         />
 
         {/* Edit Provider Modal */}
         {editingProvider && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Edit Provider Profile</h2>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#0d1525] border border-white/[0.1] rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-[family-name:var(--font-serif)] text-white text-xl font-bold">Edit Provider</h2>
+                <button onClick={handleCancelEdit} className="text-white/30 hover:text-white/60 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Provider name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Years of Experience <span className="text-gray-500">(Optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={editYearsOfExperience}
+                <InputField label="Full Name" required>
+                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
+                    className={inputCls} placeholder="Provider name" />
+                </InputField>
+                <InputField label="Years of Experience">
+                  <input type="number" min="0" max="60" value={editYearsOfExperience}
                     onChange={(e) => setEditYearsOfExperience(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., 5"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Specialisation <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={editSpecialisation}
-                    onChange={(e) => setEditSpecialisation(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select specialisation</option>
-                    <option value="General Practice">General Practice</option>
-                    <option value="Cardiology">Cardiology</option>
-                    <option value="Neurology">Neurology</option>
-                    <option value="Pediatrics">Pediatrics</option>
-                    <option value="Surgery">Surgery</option>
-                    <option value="Orthopedics">Orthopedics</option>
-                    <option value="Dermatology">Dermatology</option>
-                    <option value="Psychiatry">Psychiatry</option>
-                    <option value="Radiology">Radiology</option>
-                    <option value="Anesthesiology">Anesthesiology</option>
-                    <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
-                    <option value="Ophthalmology">Ophthalmology</option>
-                    <option value="Emergency Medicine">Emergency Medicine</option>
-                    <option value="Internal Medicine">Internal Medicine</option>
-                    <option value="Other">Other</option>
+                    className={inputCls} placeholder="e.g., 5" />
+                </InputField>
+                <InputField label="Specialisation" required>
+                  <select value={editSpecialisation} onChange={(e) => setEditSpecialisation(e.target.value)}
+                    className={inputCls}>
+                    <option value="" className="bg-[#0d1525]">Select specialisation</option>
+                    {SPECIALISATIONS.map((s) => (
+                      <option key={s} value={s} className="bg-[#0d1525]">{s}</option>
+                    ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    About <span className="text-gray-500">(Optional)</span>
-                  </label>
-                  <textarea
-                    value={editAbout}
-                    onChange={(e) => setEditAbout(e.target.value)}
-                    maxLength={500}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    placeholder="Brief description about the provider..."
-                  />
-                  <p className="mt-1 text-xs text-gray-500">{editAbout.length}/500 characters</p>
-                </div>
+                </InputField>
+                <InputField label="About">
+                  <textarea value={editAbout} onChange={(e) => setEditAbout(e.target.value)}
+                    maxLength={500} rows={4}
+                    className={`${inputCls} resize-none`}
+                    placeholder="Brief description…" />
+                  <p className="mt-1 text-xs text-white/25">{editAbout.length}/500</p>
+                </InputField>
               </div>
 
               <div className="flex gap-3 justify-end mt-6">
-                <button
-                  onClick={handleCancelEdit}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
+                <button onClick={handleCancelEdit}
+                  className="px-4 py-2 border border-white/[0.1] text-white/50 rounded-xl text-sm hover:bg-white/[0.05] transition-colors">
                   Cancel
                 </button>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={processingId === editingProvider.id}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  {processingId === editingProvider.id ? "Saving..." : "Save Changes"}
+                <button onClick={handleSaveEdit} disabled={processingId === editingProvider.id}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 disabled:opacity-40 transition-colors">
+                  {processingId === editingProvider.id ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </div>
@@ -457,139 +368,95 @@ export default function AdminProvidersPage() {
 
         {/* View Provider Details Modal */}
         {viewingProvider && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#0d1525] border border-white/[0.1] rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-gray-900">Provider Profile</h2>
-                <button
-                  onClick={() => setViewingProvider(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h2 className="font-[family-name:var(--font-serif)] text-white text-2xl font-bold">Provider Profile</h2>
+                <button onClick={() => setViewingProvider(null)} className="text-white/30 hover:text-white/60 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               <div className="space-y-6">
-                {/* Basic Information */}
-                <div className="border-b border-gray-200 pb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                <div className="border-b border-white/[0.07] pb-5">
+                  <p className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-3">Basic Information</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Full Name</p>
-                      <p className="mt-1 text-sm text-gray-900">{viewingProvider.full_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Email</p>
-                      <p className="mt-1 text-sm text-gray-900">{viewingProvider.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Username</p>
-                      <p className="mt-1 text-sm text-gray-900">{viewingProvider.username || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Registered</p>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {new Date(viewingProvider.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    </div>
+                    {[
+                      ["Full Name",   viewingProvider.full_name],
+                      ["Email",       viewingProvider.email],
+                      ["Username",    viewingProvider.username || "—"],
+                      ["Registered",  new Date(viewingProvider.created_at).toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" })],
+                    ].map(([label, val]) => (
+                      <div key={label}>
+                        <p className="text-xs text-white/30 mb-1">{label}</p>
+                        <p className="text-sm text-white">{val}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Professional Details */}
-                <div className="border-b border-gray-200 pb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Professional Details</h3>
+                <div className="border-b border-white/[0.07] pb-5">
+                  <p className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-3">Professional Details</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Specialisation</p>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {viewingProvider.specialisation || <span className="text-gray-400 italic">Not provided</span>}
-                      </p>
+                      <p className="text-xs text-white/30 mb-1">Specialisation</p>
+                      <p className="text-sm text-white">{viewingProvider.specialisation || <span className="text-white/20 italic">Not provided</span>}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Years of Experience</p>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {viewingProvider.years_of_experience !== null && viewingProvider.years_of_experience !== undefined
+                      <p className="text-xs text-white/30 mb-1">Experience</p>
+                      <p className="text-sm text-white">
+                        {viewingProvider.years_of_experience != null
                           ? `${viewingProvider.years_of_experience} years`
-                          : <span className="text-gray-400 italic">Not provided</span>}
+                          : <span className="text-white/20 italic">Not provided</span>}
                       </p>
                     </div>
                   </div>
                   {viewingProvider.about && (
                     <div className="mt-4">
-                      <p className="text-sm font-medium text-gray-500">About</p>
-                      <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{viewingProvider.about}</p>
+                      <p className="text-xs text-white/30 mb-1">About</p>
+                      <p className="text-sm text-white/70 whitespace-pre-wrap">{viewingProvider.about}</p>
                     </div>
                   )}
                 </div>
 
-                {/* License Information */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">License Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">License Status</p>
-                      <p className="mt-1">
-                        <span className={`inline-flex px-3 py-1 text-xs leading-5 font-semibold rounded-full ${getStatusColor(viewingProvider.license_status)}`}>
-                          {viewingProvider.license_status || "pending"}
-                        </span>
-                      </p>
-                    </div>
+                  <p className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-3">License</p>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {statusBadge(viewingProvider.license_status)}
                     {viewingProvider.license_verified_at && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Verified On</p>
-                        <p className="mt-1 text-sm text-gray-900">
-                          {new Date(viewingProvider.license_verified_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
+                      <span className="text-xs text-white/30">
+                        Verified {new Date(viewingProvider.license_verified_at).toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" })}
+                      </span>
+                    )}
+                    {viewingProvider.license_key && (
+                      <button
+                        onClick={() => { setViewingProvider(null); handleViewLicense(viewingProvider.id); }}
+                        className="px-3 py-1.5 bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-xs rounded-lg hover:bg-indigo-500/25 transition-colors"
+                      >
+                        View Document
+                      </button>
                     )}
                   </div>
-                  {viewingProvider.license_key && (
-                    <div className="mt-4">
-                      <button
-                        onClick={() => {
-                          setViewingProvider(null);
-                          handleViewLicense(viewingProvider.id);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
-                      >
-                        View License Document
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setViewingProvider(null)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.07]">
+                <button onClick={() => setViewingProvider(null)}
+                  className="px-4 py-2 border border-white/[0.1] text-white/50 rounded-xl text-sm hover:bg-white/[0.05] transition-colors">
                   Close
                 </button>
                 <button
-                  onClick={() => {
-                    const provider = viewingProvider;
-                    setViewingProvider(null);
-                    handleEditProvider(provider);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
+                  onClick={() => { const p = viewingProvider; setViewingProvider(null); handleEditProvider(p); }}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 transition-colors">
                   Edit Provider
                 </button>
               </div>
             </div>
           </div>
         )}
+
       </div>
     </RoleProtection>
   );

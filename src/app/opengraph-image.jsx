@@ -96,17 +96,17 @@ export default function OGImage() {
         {/* Tagline */}
         <div
           style={{
-            fontSize: 24,
+            fontSize: 26,
             color: "rgba(255,255,255,0.5)",
             textAlign: "center",
-            maxWidth: 560,
+            maxWidth: 600,
             lineHeight: 1.5,
             marginBottom: 40,
           }}
         >
-          Your health is happening{" "}
-          <span style={{ color: "rgba(255,255,255,0.8)", fontStyle: "italic" }}>
-            right now.
+          All your health data,{" "}
+          <span style={{ color: "rgba(255,255,255,0.85)", fontStyle: "italic" }}>
+            finally in one place.
           </span>
         </div>
 

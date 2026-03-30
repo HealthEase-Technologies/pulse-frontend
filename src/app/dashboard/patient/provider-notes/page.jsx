@@ -5,253 +5,130 @@ import { getMyDoctorNotes, markNoteAsRead } from "@/services/api_calls";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 
-function formatTimestamp(date) {
-  return new Date(date).toLocaleString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+/* ─── helpers ────────────────────────────────────────────────────── */
+const fmtDate = (ts) => {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString(undefined, { year:"numeric", month:"long", day:"numeric", hour:"2-digit", minute:"2-digit" });
+};
 
+/* ─── main ───────────────────────────────────────────────────────── */
 export default function ProviderNotesPage() {
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [notes,     setNotes]     = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState("");
   const [markingId, setMarkingId] = useState(null);
+  const [filter,    setFilter]    = useState("all"); // all | unread | read
 
-  // ✅ Single loader function (used by useEffect + optional reload fallback)
   const loadNotes = async () => {
+    setLoading(true); setError("");
     try {
-      setLoading(true);
-      setError("");
-
       const data = await getMyDoctorNotes();
-      console.log("Doctor notes received:", data);
-
       setNotes(data?.notes || data || []);
-    } catch (err) {
-      console.error("Failed to load doctor recommendations:", err);
-      setError(err?.message || "Failed to load recommendations");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err?.message || "Failed to load notes"); }
+    finally { setLoading(false); }
   };
 
-  // ✅ No auto-mark. Just load notes.
-  useEffect(() => {
-    loadNotes();
-  }, []);
+  useEffect(() => { loadNotes(); }, []);
 
-  // ✅ Tick/checkbox marking (one-way: unread -> read)
-  const handleToggleRead = async (noteId, nextChecked) => {
-    // If backend only supports "mark as read", don't allow unchecking.
-    if (!nextChecked) return;
-
+  const handleMarkRead = async (id) => {
+    setMarkingId(String(id));
     try {
-      setMarkingId(String(noteId));
-      await markNoteAsRead(noteId);
-
-      // Optimistic UI update
-      setNotes((prev) =>
-        prev.map((n) => (String(n.id) === String(noteId) ? { ...n, is_read: true } : n))
-      );
-    } catch (err) {
-      console.error("Failed to mark as read:", err);
-      // fallback: reload to keep UI consistent
-      await loadNotes();
-    } finally {
-      setMarkingId(null);
-    }
+      await markNoteAsRead(id);
+      setNotes((prev) => prev.map((n) => String(n.id) === String(id) ? { ...n, is_read: true } : n));
+    } catch (_) {}
+    finally { setMarkingId(null); }
   };
 
-  if (loading) {
-    return (
-      <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-        </div>
-      </RoleProtection>
-    );
-  }
+  const filtered = notes.filter((n) => {
+    if (filter === "unread") return !n.is_read;
+    if (filter === "read")   return  n.is_read;
+    return true;
+  });
+
+  const unreadCount = notes.filter((n) => !n.is_read).length;
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.PATIENT]}>
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto pb-10 space-y-6">
+
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">📋 Provider Notes</h1>
-          <p className="text-gray-600">
-            View clinical notes and recommendations from your healthcare provider
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">Provider Notes</h1>
+            <p className="text-white/40 text-sm mt-1">Notes and messages from your healthcare provider.</p>
+          </div>
+          {unreadCount > 0 && (
+            <span className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold">
+              {unreadCount} unread
+            </span>
+          )}
         </div>
 
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-6">
-            <p className="font-semibold">Error loading notes</p>
-            <p className="text-sm mt-1">{error}</p>
+        {/* Filter tabs */}
+        <div className="flex gap-2">
+          {["all","unread","read"].map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors capitalize ${filter === f ? "bg-indigo-500/15 border-indigo-500/25 text-indigo-300" : "bg-white/[0.03] border-white/[0.07] text-white/40 hover:text-white/60"}`}>
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {error && <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => <div key={i} className="h-24 rounded-2xl bg-white/[0.03] border border-white/[0.05] animate-pulse" />)}
           </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && notes.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">📝</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Notes Yet</h3>
-            <p className="text-gray-600 max-w-md mx-auto">
-              Your healthcare provider hasn&apos;t added any notes yet. Check back after your next
-              consultation.
-            </p>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-8 text-center text-white/25 text-sm">
+            {filter === "unread" ? "No unread notes." : "No notes yet."}
           </div>
-        )}
-
-        {/* Notes List */}
-        {notes.length > 0 && (
-          <div className="space-y-6">
-            {notes.map((note) => {
-              const noteId = String(note.id);
-              const isRead = Boolean(note.is_read);
-
-              return (
-                <div
-                  key={noteId}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  {/* layout: content + right-side panel */}
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_240px]">
-                    {/* LEFT: note body */}
-                    <div>
-                      {/* Note Header */}
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-6 h-6 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M16 7a4 4 0 11-8 0 8 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                              />
-                            </svg>
-                          </div>
-
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {note?.provider?.full_name || note.full_name || "Your Healthcare Provider"}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {formatTimestamp(note.created_at || note.createdAt)}
-                            </p>
-                          </div>
-
-                          {/* Note Type Badge */}
-                          {note.note_type && (
-                            <span className="ml-auto inline-flex px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {note.note_type.replace(/_/g, " ").toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Note Content */}
-                      <div className="px-6 py-6">
-                        <div
-                          className="prose prose-blue max-w-none text-gray-800"
-                          dangerouslySetInnerHTML={{
-                            __html: note.content || note.html || note.note_text || note.text,
-                          }}
-                        />
-                      </div>
-
-                      {/* Note Footer */}
-                      {note.updated_at && note.updated_at !== note.created_at && (
-                        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                          <p className="text-xs text-gray-500">
-                            Last updated: {formatTimestamp(note.updated_at)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* RIGHT: tick box (no auto-mark) */}
-                    <div className="border-t md:border-t-0 md:border-l border-gray-200 bg-white flex items-center justify-center p-6">
-                      <div className="w-full space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Read</span>
-
-                          <input
-                            type="checkbox"
-                            checked={isRead}
-                            disabled={isRead || markingId === noteId}
-                            onChange={(e) => handleToggleRead(noteId, e.target.checked)}
-                            className="h-5 w-5 accent-blue-900"
-                            title={isRead ? "Already read" : "Mark as read"}
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleToggleRead(noteId, true)}
-                          disabled={isRead || markingId === noteId}
-                          className={`w-full py-3 rounded-lg font-semibold transition-colors ${
-                            isRead
-                              ? "bg-gray-200 text-gray-600 cursor-not-allowed"
-                              : "bg-blue-900 text-white hover:bg-blue-800"
-                          }`}
-                        >
-                          {markingId === noteId ? "Marking..." : isRead ? "Read" : "Mark as Read"}
-                        </button>
-
-                        <p className="text-xs text-gray-500 text-center">
-                          Status:{" "}
-                          <span
-                            className={
-                              isRead ? "text-green-700 font-medium" : "text-amber-700 font-medium"
-                            }
-                          >
-                            {isRead ? "Read" : "Unread"}
-                          </span>
-                        </p>
-                      </div>
+        ) : (
+          <div className="space-y-4">
+            {filtered.map((n) => (
+              <div key={n.id} className={`rounded-2xl border p-5 space-y-3 transition-colors ${n.is_read ? "border-white/[0.07] bg-white/[0.02]" : "border-indigo-500/15 bg-indigo-500/[0.04]"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.is_read ? "bg-white/15" : "bg-indigo-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/60 text-sm font-semibold truncate">
+                        {n.provider_name || "Your Provider"}
+                      </p>
+                      <p className="text-white/25 text-xs">{fmtDate(n.created_at)}</p>
                     </div>
                   </div>
+                  {!n.is_read && (
+                    <button
+                      onClick={() => handleMarkRead(n.id)}
+                      disabled={markingId === String(n.id)}
+                      className="px-3 py-1 rounded-lg text-xs bg-white/[0.05] border border-white/[0.09] text-white/35 hover:text-white/55 transition-colors disabled:opacity-40 flex-shrink-0"
+                    >
+                      {markingId === String(n.id) ? "…" : "Mark read"}
+                    </button>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
 
-        {/* Info Box */}
-        {notes.length > 0 && (
-          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex gap-3">
-              <svg
-                className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-blue-900">About These Notes</p>
-                <p className="text-sm text-blue-800 mt-1">
-                  These notes are written by your healthcare provider to help guide your health journey. If you
-                  have questions, please contact your provider directly.
-                </p>
+                {n.content && (
+                  <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{n.content}</p>
+                )}
+
+                {/* Recommendation tags */}
+                {n.recommendation_type && (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07] text-white/30 capitalize">
+                      {n.recommendation_type}
+                    </span>
+                    {n.biomarker_type && (
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/15 text-indigo-400/70">
+                        {n.biomarker_type.replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
+            ))}
           </div>
         )}
       </div>

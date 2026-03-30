@@ -32,11 +32,16 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata = {
   title: {
-    default: "Pulse — Real-Time Health Monitoring",
+    default: "Pulse — All Your Health Data, Finally in One Place.",
     template: "%s | Pulse",
   },
   description:
-    "Stream your vitals in real time, solo or alongside your Healthcare Provider. AI-powered health insights, HCP connections, and personalised recommendations.",
+    "Pulse streams your vitals in real time so you never miss what your body is telling you. Connect wearables, get AI-powered insights, and share live data with your doctor — free to start.",
+  keywords: [
+    "real-time health monitoring", "wearable health tracker", "AI health companion",
+    "remote patient monitoring", "healthcare provider platform", "live vitals",
+    "health dashboard", "biomarker tracking", "Pulse app", "HealthEase Technologies",
+  ],
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
@@ -45,24 +50,30 @@ export const metadata = {
     type: "website",
     url: "https://getpulse.app",
     siteName: "Pulse",
-    title: "Pulse — Real-Time Health Monitoring",
+    title: "Pulse — All Your Health Data, Finally in One Place.",
     description:
-      "Your health is happening right now. Stream your vitals in real time with Pulse.",
+      "All your health data, finally in one place. Stream vitals in real time, get AI-powered insights, and share live data with your Healthcare Provider — free to start.",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Pulse — Real-Time Health Monitoring",
+        alt: "Pulse — Real-Time Health Monitoring by HealthEase Technologies",
       },
     ],
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pulse — Real-Time Health Monitoring",
+    title: "Pulse — All Your Health Data, Finally in One Place.",
     description:
-      "Your health is happening right now. Stream your vitals in real time with Pulse.",
+      "All your health data, finally in one place. Real-time vitals, AI insights, and your Healthcare Provider — all on Pulse.",
     images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {

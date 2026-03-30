@@ -6,7 +6,7 @@ export const runtime = "edge";
 const ALLOWED = new Set(["192", "512"]);
 
 export async function GET(request, { params }) {
-  const size = params.size;
+  const { size } = await params;
 
   if (!ALLOWED.has(size)) {
     return new NextResponse("Not found", { status: 404 });
@@ -51,7 +51,7 @@ export async function GET(request, { params }) {
           height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#6366f1"
+          stroke="rgba(255,255,255,0.9)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
