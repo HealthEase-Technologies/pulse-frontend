@@ -70,8 +70,8 @@ const authenticatedFetch = async (url, options = {}) => {
       },
     });
 
-    // Check for unauthorized access
-    if (response.status === 401 || response.status === 403) {
+    // Only auto-logout on 401 (expired/invalid token), not 403 (insufficient role)
+    if (response.status === 401) {
       const errBody = await response.clone().json().catch(() => ({}));
       console.error('[Auth 401] detail:', errBody?.detail, '| token present:', !!localStorage.getItem('access-token'));
       handleUnauthorized();
@@ -562,7 +562,7 @@ export const sendConnectionToHcp = async (providerUserId) => {
     });
 
     // Handle unauthorized manually since we're not using authenticatedFetch
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       console.warn('Unauthorized access detected. Logging out...');
       handleUnauthorized();
       throw new Error('Session expired. Please log in again.');
@@ -1073,7 +1073,7 @@ export const uploadMedicalLicense = async (file, providerDetails = {}) => {
     });
 
     // Handle unauthorized manually since we're not using authenticatedFetch
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       console.warn('Unauthorized access detected. Logging out...');
       handleUnauthorized();
       throw new Error('Session expired. Please log in again.');
@@ -1510,7 +1510,7 @@ export const getMyRecommendations = async (category = null) => {
       method: "GET",
       headers: getAuthHeaders(),
     });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleUnauthorized();
       return null;
     }
@@ -1532,7 +1532,7 @@ export const startRecommendation = async (recommendationId) => {
       method: "PATCH",
       headers: getAuthHeaders(),
     });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleUnauthorized();
       return null;
     }
@@ -1556,7 +1556,7 @@ export const updateRecommendationProgress = async (recommendationId, progressPer
       headers: getAuthHeaders(),
       body: JSON.stringify({ progress_percentage: progressPercentage }),
     });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleUnauthorized();
       return null;
     }
@@ -1579,7 +1579,7 @@ export const toggleActionStep = async (recommendationId, stepNumber) => {
       method: "PATCH",
       headers: getAuthHeaders(),
     });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleUnauthorized();
       return null;
     }
@@ -1601,7 +1601,7 @@ export const completeRecommendation = async (recommendationId) => {
       method: "PATCH",
       headers: getAuthHeaders(),
     });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleUnauthorized();
       return null;
     }
@@ -1626,7 +1626,7 @@ export const getPatientRecommendations = async (patientUserId, statusFilter = nu
       method: "GET",
       headers: getAuthHeaders(),
     });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       handleUnauthorized();
       return null;
     }

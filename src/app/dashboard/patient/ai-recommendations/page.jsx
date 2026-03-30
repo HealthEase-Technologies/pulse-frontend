@@ -132,12 +132,12 @@ export default function AIRecommendationsPage() {
                   )}
 
                   {/* Steps / action items */}
-                  {Array.isArray(r.steps) && r.steps.length > 0 && (
+                  {Array.isArray(r.action_steps) && r.action_steps.length > 0 && (
                     <ul className="space-y-1.5">
-                      {r.steps.map((s, i) => (
+                      {r.action_steps.map((s, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-white/55">
                           <span className="w-4 h-4 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-semibold">{i+1}</span>
-                          {s}
+                          {s.instruction || s}
                         </li>
                       ))}
                     </ul>

@@ -94,7 +94,7 @@ export default function ProviderNotesPage() {
                     <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.is_read ? "bg-white/15" : "bg-indigo-400"}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-white/60 text-sm font-semibold truncate">
-                        {n.provider_name || "Your Provider"}
+                        {n.provider?.full_name || n.provider_name || "Your Provider"}
                       </p>
                       <p className="text-white/25 text-xs">{fmtDate(n.created_at)}</p>
                     </div>
@@ -111,7 +111,8 @@ export default function ProviderNotesPage() {
                 </div>
 
                 {n.content && (
-                  <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{n.content}</p>
+                  <div className="text-white/60 text-sm leading-relaxed prose prose-invert prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: n.content }} />
                 )}
 
                 {/* Recommendation tags */}
