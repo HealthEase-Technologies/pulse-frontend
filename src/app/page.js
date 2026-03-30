@@ -994,7 +994,7 @@ export default function Home() {
               <div className="flex items-end gap-1 mb-1">
                 <span className="font-serif text-4xl text-white">$0</span>
               </div>
-              <p className="text-white/25 text-xs mb-5">Forever free · no card needed</p>
+              <p className="text-white/25 text-xs mb-5">Always free · no card needed</p>
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
                   "1 wearable connection",
