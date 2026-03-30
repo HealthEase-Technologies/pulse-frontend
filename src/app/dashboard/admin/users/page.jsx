@@ -5,16 +5,26 @@ import { getAllUsersAdmin } from "@/services/api_calls";
 import RoleProtection from "@/components/RoleProtection";
 import { USER_ROLES } from "@/hooks/useUserRole";
 
+const ROLE_BADGE = {
+  1: { label: "Patient",  cls: "bg-indigo-500/15 border-indigo-500/20 text-indigo-400" },
+  2: { label: "Provider", cls: "bg-green-500/15  border-green-500/20  text-green-400"  },
+  3: { label: "Admin",    cls: "bg-purple-500/15 border-purple-500/20 text-purple-400" },
+};
+
+const LICENSE_BADGE = {
+  approved: "bg-green-500/15 border-green-500/20 text-green-400",
+  rejected: "bg-red-500/15   border-red-500/20   text-red-400",
+  pending:  "bg-amber-500/15 border-amber-500/20 text-amber-400",
+};
+
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [users, setUsers]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  useEffect(() => { loadUsers(); }, []);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -30,180 +40,146 @@ export default function AdminUsersPage() {
     }
   };
 
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 1:
-        return "bg-blue-100 text-blue-800";
-      case 2:
-        return "bg-green-100 text-green-800";
-      case 3:
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.username?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesRole =
-      roleFilter === "all" || user.role === parseInt(roleFilter);
-
+    const matchesRole = roleFilter === "all" || user.role === parseInt(roleFilter);
     return matchesSearch && matchesRole;
   });
 
   return (
     <RoleProtection allowedRoles={[USER_ROLES.ADMIN]}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto">
+
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-          <p className="text-gray-600">
-            View all registered users in the system
-          </p>
+          <p className="text-white/30 text-xs font-semibold uppercase tracking-widest mb-1">Admin</p>
+          <h1 className="font-[family-name:var(--font-serif)] text-white text-3xl font-bold">User Management</h1>
+          <p className="text-white/40 text-sm mt-1">View all registered users in the system</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
-        {/* Search and Filter */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+        {/* Search & Filter */}
+        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-4 mb-5">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               <input
                 type="text"
-                placeholder="Search by name, email, or username..."
+                placeholder="Search by name, email, or username…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-4 py-2.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-indigo-500/50"
               />
             </div>
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500/50"
             >
-              <option value="all">All Roles</option>
-              <option value="1">Patients</option>
-              <option value="2">Providers</option>
-              <option value="3">Admins</option>
+              <option value="all"  className="bg-[#0d1525]">All Roles</option>
+              <option value="1"    className="bg-[#0d1525]">Patients</option>
+              <option value="2"    className="bg-[#0d1525]">Providers</option>
+              <option value="3"    className="bg-[#0d1525]">Admins</option>
             </select>
           </div>
-          <div className="mt-2 text-sm text-gray-500">
+          <p className="mt-2.5 text-xs text-white/25">
             Showing {filteredUsers.length} of {users.length} users
-          </div>
+          </p>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Table */}
+        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Registered
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    License Status
-                  </th>
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-white/[0.07]">
+                  {["User", "Role", "Status", "Registered", "License"].map((h) => (
+                    <th key={h} className="px-6 py-3.5 text-left text-[11px] font-semibold text-white/30 uppercase tracking-wider">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-white/[0.04]">
                 {loading ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <span className="ml-3 text-gray-600">Loading users...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1.5">
+                          <div className="h-3 bg-white/[0.06] rounded w-32 animate-pulse" />
+                          <div className="h-2.5 bg-white/[0.04] rounded w-44 animate-pulse" />
+                        </div>
+                      </td>
+                      {[1,2,3,4].map((j) => (
+                        <td key={j} className="px-6 py-4">
+                          <div className="h-3 bg-white/[0.06] rounded w-20 animate-pulse" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
+                    <td colSpan="5" className="px-6 py-12 text-center text-white/30 text-sm">
                       No users found
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.full_name || "N/A"}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.email}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            @{user.username}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(
-                            user.role
-                          )}`}
-                        >
-                          {user.role_name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.is_active
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {user.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {user.role === 2 ? (
-                          <span
-                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.license_status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : user.license_status === "rejected"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {user.license_status || "pending"}
+                  filteredUsers.map((user) => {
+                    const role    = ROLE_BADGE[user.role] || { label: "Unknown", cls: "bg-white/10 border-white/10 text-white/40" };
+                    const licStat = user.license_status || "pending";
+                    const licCls  = LICENSE_BADGE[licStat] || LICENSE_BADGE.pending;
+                    return (
+                      <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-white">{user.full_name || "N/A"}</div>
+                          <div className="text-xs text-white/40 mt-0.5">{user.email}</div>
+                          <div className="text-xs text-white/25">@{user.username}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${role.cls}`}>
+                            {role.label}
                           </span>
-                        ) : (
-                          <span className="text-sm text-gray-400">N/A</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
+                            user.is_active
+                              ? "bg-green-500/15 border-green-500/20 text-green-400"
+                              : "bg-red-500/15   border-red-500/20   text-red-400"
+                          }`}>
+                            {user.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white/40">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {user.role === 2 ? (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${licCls}`}>
+                              {licStat}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-white/20">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
       </div>
     </RoleProtection>
   );
