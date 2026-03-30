@@ -522,6 +522,159 @@ export default function Home() {
                   </svg>
                   <span className="text-white/35 text-[11px] font-medium tracking-wide whitespace-nowrap">{label}</span>
                 </div>
+                <p className="text-white/30 text-xs">Forever free. No card needed.</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "1 wearable connection",
+                  "7-day data history",
+                  "Heart rate, steps & sleep",
+                  "Pulse Pet (basic)",
+                  "Manual biomarker entry",
+                  "5 AI responses / month",
+                  "Email alerts",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-white/25 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                Get Started Free
+              </Link>
+            </div>
+
+            {/* Pro — most popular */}
+            <div className="relative bg-white/[0.06] border border-indigo-500/40 rounded-2xl p-6 flex flex-col shadow-xl shadow-indigo-500/10">
+              {/* Popular badge */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/40 whitespace-nowrap">
+                Most Popular
+              </div>
+              <div className="mb-5">
+                <p className="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Pro</p>
+                <div className="flex items-end gap-1.5 mb-1">
+                  <span className="font-serif text-4xl text-white">$12</span>
+                  <span className="text-white/35 text-sm mb-1.5">/month</span>
+                </div>
+                <p className="text-white/30 text-xs">AED 44 / month · save 20% annually</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Unlimited device connections",
+                  "Full data history",
+                  "All 6 biomarkers (incl. BP & glucose)",
+                  "Full Pulse Pet + streaks & accessories",
+                  "Unlimited AI health companion",
+                  "AI-powered recommendations",
+                  "Custom smart alerts & thresholds",
+                  "Monthly PDF + CSV health reports",
+                  "Connect with 1 Healthcare Provider",
+                  "Emergency contact alerts",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/65">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center bg-white text-gray-900 font-bold text-sm py-2.5 rounded-xl hover:bg-gray-100 transition-all duration-200 shadow-lg shadow-black/20">
+                Start Pro Free
+              </Link>
+              <p className="text-white/20 text-[10px] text-center mt-2">14-day trial · no card required</p>
+            </div>
+
+            {/* HCP */}
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 flex flex-col">
+              <div className="mb-5">
+                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Healthcare Provider</p>
+                <div className="flex items-end gap-1.5 mb-1">
+                  <span className="font-serif text-4xl text-white">$49</span>
+                  <span className="text-white/35 text-sm mb-1.5">/month</span>
+                </div>
+                <p className="text-white/30 text-xs">AED 180 / month · per provider account</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Everything in Pro (for yourself)",
+                  "Monitor up to 20 patients",
+                  "Real-time patient biomarker access",
+                  "Per-patient custom alert thresholds",
+                  "Clinical notes system",
+                  "Patient PDF report generation",
+                  "Priority alert notifications",
+                  "Patient connection management",
+                  "License verification included",
+                  "Recommendations view per patient",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                Join as HCP
+              </Link>
+            </div>
+
+            {/* Clinic / Enterprise */}
+            <div className="bg-gradient-to-b from-white/[0.05] to-white/[0.02] border border-white/[0.1] rounded-2xl p-6 flex flex-col">
+              <div className="mb-5">
+                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Clinic / Enterprise</p>
+                <div className="flex items-end gap-1.5 mb-1">
+                  <span className="font-serif text-3xl text-white">Custom</span>
+                </div>
+                <p className="text-white/30 text-xs">Tailored to your clinic's scale</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Unlimited patient capacity",
+                  "Multiple HCP accounts",
+                  "Centralised clinic dashboard",
+                  "Bulk report generation",
+                  "API access & custom integrations",
+                  "Dedicated account manager",
+                  "SLA-backed uptime guarantee",
+                  "Staff onboarding & training",
+                  "HIPAA + GDPR compliance support",
+                  "Custom billing & invoicing",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/contact"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                Contact Sales
+              </Link>
+            </div>
+          </div>
+
+          {/* FAQ footnote */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-6 text-center">
+            {[
+              { q: "Cancel anytime",       icon: "✓" },
+              { q: "No setup fees",         icon: "✓" },
+              { q: "HIPAA & GDPR compliant", icon: "✓" },
+              { q: "14-day Pro trial",      icon: "✓" },
+            ].map((n) => (
+              <div key={n.q} className="flex items-center gap-1.5 text-white/30 text-xs">
+                <span className="text-white/20">{n.icon}</span>
+                {n.q}
               </div>
             ))}
           </div>
@@ -623,6 +776,159 @@ export default function Home() {
                   <p className="text-white/45 text-sm leading-relaxed mb-4">{f.body}</p>
                   {f.mock}
                 </div>
+                <p className="text-white/30 text-xs">Forever free. No card needed.</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "1 wearable connection",
+                  "7-day data history",
+                  "Heart rate, steps & sleep",
+                  "Pulse Pet (basic)",
+                  "Manual biomarker entry",
+                  "5 AI responses / month",
+                  "Email alerts",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-white/25 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                Get Started Free
+              </Link>
+            </div>
+
+            {/* Pro — most popular */}
+            <div className="relative bg-white/[0.06] border border-indigo-500/40 rounded-2xl p-6 flex flex-col shadow-xl shadow-indigo-500/10">
+              {/* Popular badge */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/40 whitespace-nowrap">
+                Most Popular
+              </div>
+              <div className="mb-5">
+                <p className="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Pro</p>
+                <div className="flex items-end gap-1.5 mb-1">
+                  <span className="font-serif text-4xl text-white">$12</span>
+                  <span className="text-white/35 text-sm mb-1.5">/month</span>
+                </div>
+                <p className="text-white/30 text-xs">AED 44 / month · save 20% annually</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Unlimited device connections",
+                  "Full data history",
+                  "All 6 biomarkers (incl. BP & glucose)",
+                  "Full Pulse Pet + streaks & accessories",
+                  "Unlimited AI health companion",
+                  "AI-powered recommendations",
+                  "Custom smart alerts & thresholds",
+                  "Monthly PDF + CSV health reports",
+                  "Connect with 1 Healthcare Provider",
+                  "Emergency contact alerts",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/65">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center bg-white text-gray-900 font-bold text-sm py-2.5 rounded-xl hover:bg-gray-100 transition-all duration-200 shadow-lg shadow-black/20">
+                Start Pro Free
+              </Link>
+              <p className="text-white/20 text-[10px] text-center mt-2">14-day trial · no card required</p>
+            </div>
+
+            {/* HCP */}
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 flex flex-col">
+              <div className="mb-5">
+                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Healthcare Provider</p>
+                <div className="flex items-end gap-1.5 mb-1">
+                  <span className="font-serif text-4xl text-white">$49</span>
+                  <span className="text-white/35 text-sm mb-1.5">/month</span>
+                </div>
+                <p className="text-white/30 text-xs">AED 180 / month · per provider account</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Everything in Pro (for yourself)",
+                  "Monitor up to 20 patients",
+                  "Real-time patient biomarker access",
+                  "Per-patient custom alert thresholds",
+                  "Clinical notes system",
+                  "Patient PDF report generation",
+                  "Priority alert notifications",
+                  "Patient connection management",
+                  "License verification included",
+                  "Recommendations view per patient",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                Join as HCP
+              </Link>
+            </div>
+
+            {/* Clinic / Enterprise */}
+            <div className="bg-gradient-to-b from-white/[0.05] to-white/[0.02] border border-white/[0.1] rounded-2xl p-6 flex flex-col">
+              <div className="mb-5">
+                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-3">Clinic / Enterprise</p>
+                <div className="flex items-end gap-1.5 mb-1">
+                  <span className="font-serif text-3xl text-white">Custom</span>
+                </div>
+                <p className="text-white/30 text-xs">Tailored to your clinic's scale</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Unlimited patient capacity",
+                  "Multiple HCP accounts",
+                  "Centralised clinic dashboard",
+                  "Bulk report generation",
+                  "API access & custom integrations",
+                  "Dedicated account manager",
+                  "SLA-backed uptime guarantee",
+                  "Staff onboarding & training",
+                  "HIPAA + GDPR compliance support",
+                  "Custom billing & invoicing",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/45">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/contact"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-white/25 hover:text-white transition-all duration-200">
+                Contact Sales
+              </Link>
+            </div>
+          </div>
+
+          {/* FAQ footnote */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-6 text-center">
+            {[
+              { q: "Cancel anytime",       icon: "✓" },
+              { q: "No setup fees",         icon: "✓" },
+              { q: "HIPAA & GDPR compliant", icon: "✓" },
+              { q: "14-day Pro trial",      icon: "✓" },
+            ].map((n) => (
+              <div key={n.q} className="flex items-center gap-1.5 text-white/30 text-xs">
+                <span className="text-white/20">{n.icon}</span>
+                {n.q}
               </div>
             ))}
           </div>
