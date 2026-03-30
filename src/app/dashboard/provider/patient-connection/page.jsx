@@ -214,23 +214,6 @@ export default function PatientConnections() {
                     <td className="px-5 py-4 text-sm text-white/40">{formatDate(patient.requested_at)}</td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        <button onClick={() => handleViewDetails(patient)} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
-                          Details
-                        </button>
-                        <Link
-                          href={patient.patient_user_id ? `/dashboard/provider/patient-connection/biomarkers/${patient.patient_user_id}` : "#"}
-                          onClick={(e) => { if (patient.status !== "accepted" || !patient.patient_user_id) e.preventDefault(); }}
-                          className={`text-xs font-medium ${patient.status === "accepted" && patient.patient_user_id ? "text-purple-400 hover:text-purple-300" : "text-white/20 cursor-not-allowed"}`}
-                        >
-                          History
-                        </Link>
-                        <Link
-                          href={patient.patient_user_id ? `/dashboard/provider/patient-recommendation?patient_user_id=${patient.patient_user_id}` : "#"}
-                          onClick={(e) => { if (patient.status !== "accepted" || !patient.patient_user_id) e.preventDefault(); }}
-                          className={`text-xs font-medium ${patient.status === "accepted" && patient.patient_user_id ? "text-emerald-400 hover:text-emerald-300" : "text-white/20 cursor-not-allowed"}`}
-                        >
-                          Recommendations
-                        </Link>
                         {patient.status === "pending" && (
                           <>
                             <button onClick={() => handleAccept(patient.id, patient.patient_name)} className="text-xs text-green-400 hover:text-green-300 font-medium">

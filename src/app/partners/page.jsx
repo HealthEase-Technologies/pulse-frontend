@@ -125,17 +125,17 @@ export default function PartnersPage() {
               Register as an independent HCP, get listed on the Pulse marketplace, and monitor your patients remotely — all from one dashboard. You bring the expertise; we bring the patients and the data.
             </p>
 
-            <ul className="space-y-3 mb-8 flex-1">
+            <ul className="space-y-3 mb-6 flex-1">
               {[
                 "Listed on the Pulse HCP marketplace",
-                "Patients can discover and connect with you",
+                "Patients discover, connect and book with you",
                 "Real-time access to connected patient biomarkers",
                 "Per-patient custom alert thresholds",
-                "Clinical notes and consultation tools",
-                "One-tap patient PDF health reports",
-                "Earn session fees from patient consultations",
+                "Clinical notes, care plans & consultation tools",
+                "AI-assisted recommendations for your patients",
+                "One-tap patient PDF & CSV health reports",
+                "Care+ patients — ongoing async chat & care revenue",
                 "License verification handled by Pulse",
-                "Everything in Pro included for your own health",
               ].map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm text-white/55">
                   <Check color="text-green-400" />
@@ -144,7 +144,7 @@ export default function PartnersPage() {
               ))}
             </ul>
 
-            <div className="bg-green-500/[0.05] border border-green-500/15 rounded-2xl p-4 mb-6">
+            <div className="bg-green-500/[0.05] border border-green-500/15 rounded-2xl p-4 mb-4">
               <p className="text-green-400/60 text-xs font-semibold uppercase tracking-widest mb-1">Pricing</p>
               <div className="flex items-end gap-1.5">
                 <p className="text-white text-3xl font-serif">$49</p>
@@ -154,9 +154,16 @@ export default function PartnersPage() {
             </div>
 
             {/* Earnings callout */}
-            <div className="bg-green-500/[0.07] border border-green-500/15 rounded-xl px-4 py-3 mb-6">
-              <p className="text-green-400 text-sm font-semibold">💰 Earn from every consultation</p>
-              <p className="text-white/40 text-xs mt-1 leading-relaxed">Set your own session rate — patients book and pay directly through Pulse. You keep the majority of every session fee (from AED 150/session).</p>
+            <div className="bg-green-500/[0.07] border border-green-500/15 rounded-xl px-4 py-3 mb-6 space-y-2">
+              <p className="text-green-400 text-sm font-semibold">💰 How you earn on Pulse</p>
+              <div className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 mt-1.5 flex-shrink-0" />
+                <p className="text-white/40 text-xs leading-relaxed"><span className="text-white/60 font-medium">Consultations:</span> Keep 80% of every session fee. Set your own rate ($20–$50/session).</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5 flex-shrink-0" />
+                <p className="text-white/40 text-xs leading-relaxed"><span className="text-white/60 font-medium">Care+ patients:</span> Earn 60–70% of their monthly Care+ subscription for ongoing async care.</p>
+              </div>
             </div>
 
             <Link href="/register?role=hcp"
