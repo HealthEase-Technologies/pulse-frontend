@@ -82,32 +82,5 @@ html.lenis { height: auto; }
 .chat-scroll::-webkit-scrollbar { display: none; }
 .chat-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ── Custom cursor ── */
-*, *::before, *::after { cursor: none !important; }
-.pulse-cursor {
-  position: fixed;
-  pointer-events: none;
-  z-index: 99999;
-  top: 0; left: 0;
-  will-change: transform;
-}
-.pulse-cursor__dot {
-  width: 8px; height: 8px;
-  background: #fff;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.15s, height 0.15s, background 0.15s, opacity 0.15s;
-}
-.pulse-cursor__ring {
-  width: 32px; height: 32px;
-  border: 1.5px solid rgba(255,255,255,0.4);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.25s cubic-bezier(0.25,0.46,0.45,0.94),
-              height 0.25s cubic-bezier(0.25,0.46,0.45,0.94),
-              border-color 0.2s, opacity 0.2s;
-}
-.pulse-cursor--hover .pulse-cursor__dot  { width: 6px; height: 6px; background: #a5b4fc; }
-.pulse-cursor--hover .pulse-cursor__ring { width: 46px; height: 46px; border-color: rgba(165,180,252,0.55); }
-.pulse-cursor--click .pulse-cursor__dot  { width: 4px; height: 4px; }
-.pulse-cursor--click .pulse-cursor__ring { width: 22px; height: 22px; border-color: rgba(255,255,255,0.7); }
+/* ── Custom cursor (disabled) ── */
+.pulse-cursor { display: none; }

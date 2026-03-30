@@ -832,8 +832,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── Live plans: 3 columns ── */}
-          <div className="grid md:grid-cols-3 gap-4 items-stretch mb-4">
+          {/* ── Patient plans ── */}
+          <p className="text-white/20 text-[10px] font-semibold uppercase tracking-widest mb-3">For Patients</p>
+          <div className="grid sm:grid-cols-3 gap-4 items-stretch mb-3">
 
             {/* Free */}
             <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 flex flex-col">
@@ -841,15 +842,15 @@ export default function Home() {
               <div className="flex items-end gap-1 mb-1">
                 <span className="font-serif text-4xl text-white">$0</span>
               </div>
-              <p className="text-white/25 text-xs mb-5">Forever free · no card needed</p>
+              <p className="text-white/25 text-xs mb-5">Always free · no card needed</p>
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
-                  "1 wearable connection",
-                  "7-day data history",
-                  "Heart rate, steps & sleep",
+                  "Connect limited devices",
+                  "Basic health dashboard",
+                  "Limited AI insights",
+                  "Book consultations (pay-per-session)",
+                  "Basic HCP notes (recent only)",
                   "Pulse Pet (basic)",
-                  "5 AI responses/mo",
-                  "Email alerts",
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-white/40">
                     <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-white/20 flex-shrink-0 mt-0.5">
@@ -881,13 +882,13 @@ export default function Home() {
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
                   "Unlimited device connections",
-                  "Full data history",
-                  "All 6 biomarkers",
+                  "Full data history & all 6 biomarkers",
+                  "Unlimited AI insights & trends",
+                  "Full reports (PDF & CSV)",
+                  "Full HCP notes history",
+                  "Alerts & recommendations",
                   "Full Pulse Pet + streaks",
-                  "Unlimited AI companion",
-                  "Custom smart alerts",
-                  "PDF & CSV health reports",
-                  "Connect with 1 HCP",
+                  "Book consultations",
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-white/60">
                     <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-indigo-400 flex-shrink-0 mt-0.5">
@@ -904,9 +905,52 @@ export default function Home() {
               <p className="text-white/20 text-[10px] text-center mt-2">14-day trial · no card required</p>
             </div>
 
-            {/* Healthcare Provider */}
+            {/* Care+ */}
+            <div className="relative bg-white/[0.04] border border-violet-500/30 rounded-2xl p-6 flex flex-col">
+              <p className="text-violet-400 text-[10px] font-semibold uppercase tracking-widest mb-3">Care+</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-serif text-4xl text-white">{billing === "annual" ? "$22" : "$29"}</span>
+                <span className="text-white/35 text-sm mb-1.5">/mo</span>
+              </div>
+              <p className="text-white/25 text-xs mb-3">
+                {billing === "annual" ? "Billed annually · save 25%" : "AED 106/mo · switch HCP anytime"}
+              </p>
+              <div className="bg-violet-500/[0.07] border border-violet-500/15 rounded-xl px-3 py-2 mb-5">
+                <p className="text-violet-400 text-[10px] font-semibold">💬 Text your doctor between consultations</p>
+                <p className="text-white/30 text-[10px] mt-0.5">Async care with your primary HCP · 24hr responses</p>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Everything in Pro",
+                  "Chat with your primary HCP",
+                  "Ongoing care plan updates",
+                  "Continuous monitoring & feedback",
+                  "Priority responses",
+                  "Switch primary HCP anytime",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/55">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-violet-400 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register"
+                className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-violet-500/25 hover:border-violet-500/50 hover:text-white transition-all duration-200">
+                Start Care+ Free
+              </Link>
+              <p className="text-white/20 text-[10px] text-center mt-2">14-day trial · no card required</p>
+            </div>
+          </div>
+
+          {/* ── HCP + Hospital plans ── */}
+          <p className="text-white/20 text-[10px] font-semibold uppercase tracking-widest mb-3 mt-6">For Healthcare Providers</p>
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+
+            {/* HCP */}
             <div className="bg-white/[0.04] border border-green-500/20 rounded-2xl p-6 flex flex-col">
-              <p className="text-green-400 text-[10px] font-semibold uppercase tracking-widest mb-3">Healthcare Provider</p>
+              <p className="text-green-400 text-[10px] font-semibold uppercase tracking-widest mb-3">Independent HCP</p>
               <div className="flex items-end gap-1 mb-1">
                 <span className="font-serif text-4xl text-white">{billing === "annual" ? "$39" : "$49"}</span>
                 <span className="text-white/35 text-sm mb-1.5">/mo</span>
@@ -915,18 +959,18 @@ export default function Home() {
                 {billing === "annual" ? "Billed $468/yr · save 20%" : "AED 180/mo · per provider"}
               </p>
               <div className="bg-green-500/[0.07] border border-green-500/15 rounded-xl px-3 py-2 mb-5">
-                <p className="text-green-400 text-[10px] font-semibold">💰 Earn from consultations</p>
-                <p className="text-white/30 text-[10px] mt-0.5">Set your rate · patients book via Pulse</p>
+                <p className="text-green-400 text-[10px] font-semibold">💰 Earn from consultations & Care+ patients</p>
+                <p className="text-white/30 text-[10px] mt-0.5">Keep 80% of consultation fees · 60–70% of Care+ revenue</p>
               </div>
               <ul className="space-y-2.5 mb-7 flex-1">
                 {[
-                  "Everything in Pro",
-                  "Monitor up to 20 patients",
-                  "Real-time patient biomarkers",
-                  "Clinical notes system",
-                  "One-tap patient PDF reports",
-                  "Priority alert notifications",
-                  "Marketplace listing",
+                  "Marketplace listing — patients find you",
+                  "Real-time patient biomarker monitoring",
+                  "Clinical notes & care plan tools",
+                  "AI-assisted recommendations",
+                  "One-tap patient PDF health reports",
+                  "Per-patient custom alert thresholds",
+                  "Patient alerts & tracking",
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-white/50">
                     <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5">
@@ -936,61 +980,72 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <Link href="/register"
+              <Link href="/register?role=hcp"
                 className="w-full text-center text-white/60 font-semibold text-sm py-2.5 rounded-xl border border-white/[0.12] hover:border-green-500/40 hover:text-white transition-all duration-200">
-                Join as HCP
+                Join as HCP →
+              </Link>
+            </div>
+
+            {/* Hospital */}
+            <div className="relative bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 flex flex-col">
+              <div className="flex items-start justify-between gap-2 mb-5">
+                <div>
+                  <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest mb-2">Hospitals & Clinics</p>
+                  <p className="font-serif text-3xl text-white/60">Custom</p>
+                  <p className="text-white/20 text-xs mt-0.5">$200–$1,000+/mo · multi-HCP accounts</p>
+                </div>
+                <span className="flex-shrink-0 bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full">Coming Soon</span>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1">
+                {[
+                  "Multi-HCP accounts under one institution",
+                  "Centralised admin dashboard",
+                  "Patients access free under hospital sponsorship",
+                  "Patient analytics & team management",
+                  "White-label reports (future)",
+                  "API integrations for EHR systems",
+                  "HIPAA & GDPR compliance support",
+                  "Dedicated onboarding & SLA",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-white/35">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-amber-400/60 flex-shrink-0 mt-0.5">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.78 5.28-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06L6.75 9.19l3.97-3.97a.75.75 0 1 1 1.06 1.06z"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/contact?reason=clinic"
+                className="w-full text-center text-white/30 font-semibold text-xs py-2.5 rounded-xl border border-white/[0.07] hover:border-white/15 hover:text-white/50 transition-all duration-200">
+                Register Your Institution's Interest →
               </Link>
             </div>
           </div>
 
-          {/* ── Coming Soon: Hospital plans side by side ── */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              {
-                label: "Hospital Affiliated — Patients",
-                sub: "Free for patients · hospital sponsored",
-                desc: "Your hospital licenses Pulse and covers the cost. Patients log in with existing hospital credentials.",
-                cta: "Register Interest →",
-                href: "/contact?reason=clinic",
-              },
-              {
-                label: "Hospital Affiliated — Providers",
-                sub: "Free for providers · hospital sponsored",
-                desc: "Doctors at Pulse-licensed hospitals log in via institutional credentials to monitor assigned patients.",
-                cta: "Contact for Hospital Licensing →",
-                href: "/contact?reason=clinic",
-              },
-            ].map((card) => (
-              <div key={card.label} className="relative bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest mb-1">{card.label}</p>
-                    <p className="font-serif text-xl text-white/45">Custom Pricing</p>
-                    <p className="text-white/20 text-xs mt-0.5">{card.sub}</p>
-                  </div>
-                  <span className="flex-shrink-0 bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full">
-                    Coming Soon
-                  </span>
-                </div>
-                <p className="text-white/20 text-[11px] leading-relaxed">{card.desc}</p>
-                <Link href={card.href}
-                  className="w-full text-center text-white/30 font-semibold text-xs py-2 rounded-xl border border-white/[0.07] hover:border-white/15 hover:text-white/50 transition-all duration-200 mt-auto">
-                  {card.cta}
-                </Link>
-              </div>
-            ))}
+          {/* Consultation note */}
+          <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4 text-indigo-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-white/55 text-sm font-semibold">Consultations are open to all users</p>
+              <p className="text-white/30 text-xs mt-0.5">Book a session with any verified HCP regardless of your plan. HCPs set their own rate ($20–$50/session) and keep 80% of every fee.</p>
+            </div>
           </div>
 
           {/* FAQ footnote */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-6 text-center">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-center">
             {[
-              { q: "Cancel anytime",       icon: "✓" },
-              { q: "No setup fees",         icon: "✓" },
-              { q: "HIPAA & GDPR compliant", icon: "✓" },
-              { q: "14-day Pro trial",      icon: "✓" },
+              { q: "Cancel anytime" },
+              { q: "No setup fees" },
+              { q: "HIPAA & GDPR compliant" },
+              { q: "14-day free trial" },
+              { q: "Switch HCP anytime" },
             ].map((n) => (
               <div key={n.q} className="flex items-center gap-1.5 text-white/30 text-xs">
-                <span className="text-white/20">{n.icon}</span>
+                <span className="text-white/20">✓</span>
                 {n.q}
               </div>
             ))}

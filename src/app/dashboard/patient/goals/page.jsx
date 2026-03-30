@@ -371,7 +371,7 @@ export default function MyGoalsPage() {
                 {[
                   { label: "Current Streak",   value: stats.current_streak   ?? 0, suffix: "days",  color: "text-indigo-400" },
                   { label: "Longest Streak",   value: stats.longest_streak   ?? 0, suffix: "days",  color: "text-violet-400" },
-                  { label: "Completion Rate",  value: stats.completion_rate  != null ? `${Math.round(stats.completion_rate * 100)}%` : "--", suffix: "", color: "text-green-400" },
+                  { label: "Completion Rate",  value: stats.completion_rate  != null ? `${Math.round(stats.completion_rate)}%` : "--", suffix: "", color: "text-green-400" },
                 ].map((s) => (
                   <div key={s.label} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
                     <p className="text-white/30 text-xs uppercase tracking-widest mb-1">{s.label}</p>
