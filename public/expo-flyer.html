@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pulse — Expo Flyer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;1,700&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    color: #0a0f1e;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    body { margin: 0; }
+    @page { size: A4 portrait; margin: 0; }
+  }
+
+  /* ─────────────────────────────── LAYOUT ─── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #060c1c;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── background blobs ── */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .blob-1 { width: 420px; height: 420px; background: rgba(99,102,241,0.25); top: -120px; left: -100px; }
+  .blob-2 { width: 320px; height: 320px; background: rgba(139,92,246,0.18); top: 80px; right: -80px; }
+  .blob-3 { width: 360px; height: 360px; background: rgba(16,185,129,0.12); bottom: 180px; left: 60px; }
+  .blob-4 { width: 280px; height: 280px; background: rgba(99,102,241,0.12); bottom: 40px; right: 40px; }
+
+  /* ── grid overlay ── */
+  .grid-overlay {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+  }
+
+  /* ─────────────────────────────── HEADER ─── */
+  .header {
+    position: relative; z-index: 10;
+    padding: 36px 40px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 20px rgba(99,102,241,0.5);
+  }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px; font-weight: 700;
+    color: #fff; letter-spacing: -0.5px;
+  }
+
+  .badge-heriot {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 10px; font-weight: 600;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 0.3px;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .badge-heriot span { display: block; color: rgba(255,255,255,0.25); font-size: 9px; font-weight: 400; }
+
+  /* ─────────────────────────────── HERO ─── */
+  .hero {
+    position: relative; z-index: 10;
+    padding: 32px 40px 24px;
+    text-align: center;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 10px; font-weight: 700;
+    color: #a5b4fc; letter-spacing: 1.5px; text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 0 8px #6366f1;
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px; font-weight: 800;
+    color: #fff; line-height: 1.08;
+    letter-spacing: -1.5px;
+    margin-bottom: 6px;
+  }
+  .hero-title em {
+    font-style: italic;
+    background: linear-gradient(90deg, #818cf8, #c084fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .hero-sub {
+    font-size: 13.5px; font-weight: 400;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6; max-width: 420px; margin: 0 auto 22px;
+  }
+
+  .hero-pitch {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 12px;
+    padding: 10px 22px;
+    font-size: 12px; font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.2px;
+  }
+  .hero-pitch strong { color: #a5b4fc; }
+
+  /* ─────────────────────────────── STATS ROW ─── */
+  .stats-row {
+    position: relative; z-index: 10;
+    display: flex; gap: 10px;
+    padding: 0 40px 22px;
+    justify-content: center;
+  }
+  .stat-chip {
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-chip .num {
+    font-size: 22px; font-weight: 800; color: #fff;
+    line-height: 1;
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-chip .lbl {
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px;
+  }
+
+  /* ─────────────────────────────── PILLARS ─── */
+  .pillars {
+    position: relative; z-index: 10;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; padding: 0 40px 20px;
+  }
+  .pillar {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 16px 14px;
+  }
+  .pillar-icon {
+    width: 32px; height: 32px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+    font-size: 15px;
+  }
+  .pillar h3 {
+    font-size: 11.5px; font-weight: 700; color: #fff;
+    margin-bottom: 5px; line-height: 1.3;
+  }
+  .pillar p {
+    font-size: 9.5px; color: rgba(255,255,255,0.38);
+    line-height: 1.55;
+  }
+
+  /* ─────────────────────────────── TWO COL ─── */
+  .two-col {
+    position: relative; z-index: 10;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; padding: 0 40px 18px;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .card-title {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  /* pricing card */
+  .pricing-grid { display: flex; flex-direction: column; gap: 7px; }
+  .plan {
+    display: flex; align-items: center;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 9px;
+    padding: 7px 10px; gap: 8px;
+  }
+  .plan.highlight {
+    background: rgba(99,102,241,0.1);
+    border-color: rgba(99,102,241,0.3);
+  }
+  .plan.care {
+    background: rgba(139,92,246,0.08);
+    border-color: rgba(139,92,246,0.25);
+  }
+  .plan-name { font-size: 10px; font-weight: 700; flex: 1; }
+  .plan-price { font-size: 11px; font-weight: 800; color: #fff; }
+  .plan-price span { font-size: 8px; font-weight: 400; color: rgba(255,255,255,0.3); }
+  .plan-tag {
+    font-size: 8px; font-weight: 600; padding: 2px 7px;
+    border-radius: 10px; white-space: nowrap;
+  }
+
+  /* how it works */
+  .steps { display: flex; flex-direction: column; gap: 8px; }
+  .step { display: flex; align-items: flex-start; gap: 9px; }
+  .step-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; color: #fff;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .step-text { font-size: 10px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+  .step-text strong { color: rgba(255,255,255,0.8); display: block; font-size: 10.5px; }
+
+  /* ─────────────────────────────── HCP STRIP ─── */
+  .hcp-strip {
+    position: relative; z-index: 10;
+    margin: 0 40px 18px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04));
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 14px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .hcp-badge {
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: 8px; padding: 8px 12px;
+    text-align: center; flex-shrink: 0;
+  }
+  .hcp-badge .price { font-size: 20px; font-weight: 800; color: #10b981; line-height: 1; }
+  .hcp-badge .mo { font-size: 8px; color: rgba(255,255,255,0.3); }
+  .hcp-content h4 { font-size: 11.5px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .hcp-content p { font-size: 9.5px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+  .hcp-features {
+    display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px;
+  }
+  .hcp-feat {
+    font-size: 8.5px; font-weight: 600;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.15);
+    color: rgba(16,185,129,0.8);
+    border-radius: 6px; padding: 2px 7px;
+  }
+  .hcp-earn {
+    margin-left: auto; flex-shrink: 0;
+    text-align: center;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.15);
+    border-radius: 10px; padding: 10px 14px;
+  }
+  .hcp-earn .pct { font-size: 22px; font-weight: 900; color: #10b981; line-height: 1; }
+  .hcp-earn .desc { font-size: 8px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+
+  /* ─────────────────────────────── PET ROW ─── */
+  .pet-row {
+    position: relative; z-index: 10;
+    margin: 0 40px 18px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 13px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .pet-emoji { font-size: 32px; line-height: 1; }
+  .pet-content h4 { font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+  .pet-content p { font-size: 9.5px; color: rgba(255,255,255,0.38); line-height: 1.5; }
+  .pet-moods {
+    margin-left: auto; display: flex; gap: 6px; flex-shrink: 0;
+  }
+  .mood {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .mood-circle {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .mood-label { font-size: 7.5px; color: rgba(255,255,255,0.25); font-weight: 500; }
+
+  /* ─────────────────────────────── DEVICES ─── */
+  .devices-row {
+    position: relative; z-index: 10;
+    padding: 0 40px 16px;
+    text-align: center;
+  }
+  .devices-label {
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.2);
+    text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;
+  }
+  .devices-list {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+  }
+  .device-chip {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 9.5px; font-weight: 500; color: rgba(255,255,255,0.4);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .device-chip::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: rgba(99,102,241,0.6); }
+
+  /* ─────────────────────────────── FOOTER ─── */
+  .footer {
+    position: relative; z-index: 10;
+    margin-top: auto;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 14px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .footer-left { font-size: 9px; color: rgba(255,255,255,0.2); line-height: 1.6; }
+  .footer-left strong { color: rgba(255,255,255,0.4); display: block; font-size: 9.5px; }
+
+  .qr-placeholder {
+    width: 56px; height: 56px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 7.5px; color: rgba(255,255,255,0.2);
+    text-align: center; line-height: 1.4;
+    flex-shrink: 0;
+  }
+
+  .footer-cta {
+    text-align: right;
+  }
+  .footer-url {
+    font-size: 14px; font-weight: 800;
+    color: #fff; letter-spacing: -0.3px;
+  }
+  .footer-url span { color: #6366f1; }
+  .footer-tagline {
+    font-size: 8.5px; color: rgba(255,255,255,0.25);
+    margin-top: 2px;
+  }
+
+  .divider {
+    position: relative; z-index: 10;
+    height: 1px; background: rgba(255,255,255,0.05);
+    margin: 0 40px 16px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+      </div>
+      <span class="logo-name">Pulse</span>
+    </div>
+    <div class="badge-heriot">
+      Heriot-Watt University Dubai
+      <span>Final Year Project · HealthEase Technologies LLC</span>
+    </div>
+  </div>
+
+  <!-- ── HERO ── -->
+  <div class="hero">
+    <div class="hero-eyebrow">Health OS · Dubai</div>
+    <div class="hero-title">
+      Your health.<br/><em>Intelligent. Continuous.</em>
+    </div>
+    <p class="hero-sub">
+      Track every vital, talk to your doctor between appointments,
+      and let AI connect the dots — all in one platform.
+    </p>
+    <div class="hero-pitch">
+      <strong>Free plan available</strong> · Patients · Providers · Hospitals
+    </div>
+  </div>
+
+  <!-- ── STATS ── -->
+  <div class="stats-row">
+    <div class="stat-chip">
+      <div class="num">6</div>
+      <div class="lbl">Biomarkers tracked</div>
+    </div>
+    <div class="stat-chip">
+      <div class="num">5+</div>
+      <div class="lbl">Wearables supported</div>
+    </div>
+    <div class="stat-chip">
+      <div class="num">AI</div>
+      <div class="lbl">Personalised insights</div>
+    </div>
+    <div class="stat-chip">
+      <div class="num">24h</div>
+      <div class="lbl">Async HCP responses</div>
+    </div>
+    <div class="stat-chip">
+      <div class="num">∞</div>
+      <div class="lbl">Continuous care</div>
+    </div>
+  </div>
+
+  <!-- ── PILLARS ── -->
+  <div class="pillars">
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);">📡</div>
+      <h3>Live Health Tracking</h3>
+      <p>Heart rate, blood pressure, glucose, sleep, steps — synced from every device you own. Your full picture, always up to date.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.2);">🤖</div>
+      <h3>AI Health Companion</h3>
+      <p>Ask anything about your health. Get personalised recommendations, trend analysis, and goal coaching — powered by Gemini AI.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.2);">🩺</div>
+      <h3>Connected Care</h3>
+      <p>Book consultations, share live biomarkers with your HCP, receive clinical notes, and chat between appointments on Care+.</p>
+    </div>
+  </div>
+
+  <!-- ── TWO COL ── -->
+  <div class="two-col">
+
+    <!-- PRICING -->
+    <div class="card">
+      <div class="card-title" style="color:rgba(165,180,252,0.7);">Patient Plans</div>
+      <div class="pricing-grid">
+        <div class="plan">
+          <div class="plan-name" style="color:rgba(255,255,255,0.45);">Free</div>
+          <div class="plan-price">$0 <span>forever</span></div>
+          <div class="plan-tag" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.08);">Basic</div>
+        </div>
+        <div class="plan highlight">
+          <div class="plan-name" style="color:#a5b4fc;">Pro</div>
+          <div class="plan-price">$12 <span>/mo</span></div>
+          <div class="plan-tag" style="background:rgba(99,102,241,0.2);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);">★ Popular</div>
+        </div>
+        <div class="plan care">
+          <div class="plan-name" style="color:#c084fc;">Care+</div>
+          <div class="plan-price">$29 <span>/mo</span></div>
+          <div class="plan-tag" style="background:rgba(139,92,246,0.2);color:#c084fc;border:1px solid rgba(139,92,246,0.3);">+ HCP Chat</div>
+        </div>
+      </div>
+      <p style="font-size:8.5px;color:rgba(255,255,255,0.2);margin-top:8px;line-height:1.5;">
+        💬 <strong style="color:rgba(255,255,255,0.35);">Care+</strong> unlocks async chat with your dedicated primary HCP between appointments. Switch anytime.
+      </p>
+      <p style="font-size:8px;color:rgba(255,255,255,0.2);margin-top:5px;">
+        All users can book consultations · HCPs set own rate
+      </p>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="card">
+      <div class="card-title" style="color:rgba(165,180,252,0.7);">How it works</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <strong>Connect your devices</strong>
+            Apple Watch, Whoop, Fitbit, Omron BP, FreeStyle Libre — synced in minutes.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <strong>Get AI-powered insights</strong>
+            Daily health scores, trend analysis, goals & personalised recommendations.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <strong>Connect with your HCP</strong>
+            Share live data, book consultations, and chat between appointments on Care+.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text">
+            <strong>Stay on track</strong>
+            Smart alerts, goal streaks, and your Pulse Pet keep you consistent every day.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HCP STRIP ── -->
+  <div class="hcp-strip">
+    <div class="hcp-badge">
+      <div class="price">$49</div>
+      <div class="mo">/month</div>
+    </div>
+    <div class="hcp-content">
+      <h4>For Healthcare Providers — Build your practice on Pulse</h4>
+      <p>Get listed on our marketplace. Monitor patients remotely, write clinical notes, generate PDF reports, and earn from every consultation and Care+ subscription.</p>
+      <div class="hcp-features">
+        <span class="hcp-feat">Marketplace listing</span>
+        <span class="hcp-feat">Real-time biomarkers</span>
+        <span class="hcp-feat">Clinical notes</span>
+        <span class="hcp-feat">AI recommendations</span>
+        <span class="hcp-feat">PDF reports</span>
+        <span class="hcp-feat">Custom alerts</span>
+      </div>
+    </div>
+    <div class="hcp-earn">
+      <div class="pct">80%</div>
+      <div class="desc">of consultation<br/>fees kept</div>
+    </div>
+  </div>
+
+  <!-- ── PULSE PET ── -->
+  <div class="pet-row">
+    <div class="pet-emoji">🐼</div>
+    <div class="pet-content">
+      <h4>Meet your Pulse Pet</h4>
+      <p>A virtual companion that reflects your real health. Log your vitals, complete goals, and earn streaks — your pet's mood tracks your progress. Unlock accessories at 7-day streaks.</p>
+    </div>
+    <div class="pet-moods">
+      <div class="mood">
+        <div class="mood-circle" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.2);">😢</div>
+        <div class="mood-label">Sad</div>
+      </div>
+      <div class="mood">
+        <div class="mood-circle" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.2);">😐</div>
+        <div class="mood-label">Neutral</div>
+      </div>
+      <div class="mood">
+        <div class="mood-circle" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.2);">😄</div>
+        <div class="mood-label">Happy</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DEVICES ── -->
+  <div class="devices-row">
+    <div class="devices-label">Compatible devices</div>
+    <div class="devices-list">
+      <div class="device-chip">Apple Watch</div>
+      <div class="device-chip">Whoop</div>
+      <div class="device-chip">Fitbit</div>
+      <div class="device-chip">Omron Blood Pressure</div>
+      <div class="device-chip">FreeStyle Libre</div>
+      <div class="device-chip">+ more coming</div>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <div class="footer">
+    <div class="footer-left">
+      <strong>HealthEase Technologies LLC</strong>
+      JLT Towers, Dubai, UAE<br/>
+      Rhea Menezes (CEO) · Huzaifa Mohammed (CTO)<br/>
+      Academic Advisor: Prof. Talal, Heriot-Watt University Dubai
+    </div>
+
+    <div class="qr-placeholder">Scan to<br/>sign up</div>
+
+    <div class="footer-cta">
+      <div class="footer-url">get<span>pulse</span>.app</div>
+      <div class="footer-tagline">Free to get started · No card required</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
