@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background: transparent; width:400px; height:400px; overflow:hidden; }
+canvas { width:400px; height:400px; display:block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="400" height="400"></canvas>
+<script src="https://unpkg.com/@rive-app/canvas@2.23.8/rive.js"></script>
+<script>
+const r = new rive.Rive({
+  src: "https://pulse-hw-public-assets.s3.us-east-1.amazonaws.com/pets/panda/happy.riv",
+  canvas: document.getElementById("c"),
+  autoplay: true,
+  onLoad: () => {
+    r.resizeDrawingSurfaceToCanvas();
+    setTimeout(() => { document.title = "READY"; }, 800);
+  }
+});
+</script>
+</body>
+</html>
