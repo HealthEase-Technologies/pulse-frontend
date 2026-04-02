@@ -46,7 +46,7 @@ export default function HcpDirectory() {
           return {
             ...p,
             connection_status: cd?.status || (p.connection_status === "none" ? "disconnected" : p.connection_status || "disconnected"),
-            connection_id:     cd?.connection_id || null,
+            connection_id:     cd?.connection_id || p.connection_id || null,
           };
         }));
       } catch (_) {}
