@@ -138,8 +138,8 @@ export default function RegisterPage() {
           {/* Role */}
           <div>
             <label htmlFor="role" className={labelCls}>I am a</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[{ value: "1", label: "Patient" }, { value: "2", label: "Provider" }, { value: "3", label: "Admin" }].map((r) => (
+            <div className="grid grid-cols-2 gap-2">
+              {[{ value: "1", label: "Patient" }, { value: "2", label: "Provider" }].map((r) => (
                 <button
                   key={r.value} type="button"
                   onClick={() => setFormData({ ...formData, role: r.value })}
